@@ -41,6 +41,12 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
     ipcRenderer.on('clipboard:history-updated', (_, history) => callback(history))
   },
   
+  // 创建临时文件用于拖拽
+  createTempFile: (item: any) => ipcRenderer.invoke('clipboard:create-temp-file', item),
+  
+  // 启动原生拖拽
+  startDrag: (item: any) => ipcRenderer.invoke('clipboard:start-drag', item),
+  
   // 移除剪切板监听
   removeClipboardListener: () => {
     ipcRenderer.removeAllListeners('clipboard:changed')

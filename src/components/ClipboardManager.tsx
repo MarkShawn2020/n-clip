@@ -146,6 +146,43 @@ export default function ClipboardManager() {
     return ''
   }
 
+  // 处理鼠标按下事件（用于拖拽）
+  const handleMouseDown = async (e: React.MouseEvent, item: ClipboardItem) => {
+    if (item.type === 'image' && item.preview && e.button === 0) {
+      // 阻止默认行为和文字选择
+      e.preventDefault()
+      
+      // 左键按下，准备拖拽
+      let isDragging = false
+      const startX = e.clientX
+      const startY = e.clientY
+      const threshold = 5 // 拖拽阈值
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        const deltaX = Math.abs(e.clientX - startX)
+        const deltaY = Math.abs(e.clientY - startY)
+        
+        if (!isDragging && (deltaX > threshold || deltaY > threshold)) {
+          isDragging = true
+          // 开始拖拽
+          window.clipboardAPI.startDrag(item).catch(console.error)
+          // 清理事件监听器
+          document.removeEventListener('mousemove', handleMouseMove)
+          document.removeEventListener('mouseup', handleMouseUp)
+        }
+      }
+      
+      const handleMouseUp = () => {
+        // 清理事件监听器
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+      
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+  }
+
   // 获取当前选中项目
   const selectedItem = filteredItems[selectedIndex]
 
@@ -171,8 +208,9 @@ export default function ClipboardManager() {
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
-                className={`item ${index === selectedIndex ? 'selected' : ''}`}
+                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''}`}
                 onClick={() => handleItemSelect(item, index)}
+                onMouseDown={(e) => handleMouseDown(e, item)}
               >
                 <div className="item-icon">
                   {item.type === 'image' && item.preview ? (
@@ -217,6 +255,7 @@ export default function ClipboardManager() {
                     src={selectedItem.preview} 
                     alt="Preview" 
                     className="preview-image"
+                    onMouseDown={(e) => handleMouseDown(e, selectedItem)}
                   />
                 ) : (
                   <div className="preview-text">{selectedItem.content}</div>

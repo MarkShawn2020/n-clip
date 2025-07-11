@@ -102,6 +102,18 @@
   border-left-color: #007AFF;
 }
 
+.item.draggable-item {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.item.draggable-item:active {
+  cursor: grabbing;
+}
+
 .item-icon {
   font-size: 20px;
   width: 24px;
@@ -217,6 +229,15 @@
   object-fit: contain;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.preview-image:active {
+  cursor: grabbing;
 }
 
 .preview-footer {

@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
+import fs from 'node:fs'
 import { update } from './update'
 
 const require = createRequire(import.meta.url)
@@ -460,6 +461,83 @@ ipcMain.handle('window:hide', () => {
     win.hide()
   }
   return true
+})
+
+// 创建临时图片文件用于拖拽
+ipcMain.handle('clipboard:create-temp-file', async (_, item: ClipboardItem) => {
+  try {
+    if (item.type === 'image' && item.preview) {
+      // 从base64数据创建临时文件
+      const base64Data = item.preview.replace(/^data:image\/\w+;base64,/, '')
+      const imageBuffer = Buffer.from(base64Data, 'base64')
+      
+      // 创建临时文件路径
+      const tempDir = os.tmpdir()
+      const fileName = `nclip-${item.id}.png`
+      const tempPath = path.join(tempDir, fileName)
+      
+      // 写入临时文件
+      await fs.promises.writeFile(tempPath, imageBuffer)
+      
+      return tempPath
+    }
+    return null
+  } catch (error) {
+    console.error('Failed to create temp file:', error)
+    return null
+  }
+})
+
+// 启动原生拖拽
+ipcMain.handle('clipboard:start-drag', async (_, item: ClipboardItem) => {
+  try {
+    if (item.type === 'image' && item.preview && win) {
+      // 创建临时文件
+      const base64Data = item.preview.replace(/^data:image\/\w+;base64,/, '')
+      const imageBuffer = Buffer.from(base64Data, 'base64')
+      
+      const tempDir = os.tmpdir()
+      const fileName = `nclip-${item.id}.png`
+      const tempPath = path.join(tempDir, fileName)
+      
+      // 同步写入文件
+      fs.writeFileSync(tempPath, imageBuffer)
+      
+      // 确保文件存在
+      if (fs.existsSync(tempPath)) {
+        console.log('Starting drag for file:', tempPath)
+        
+        // 创建拖拽图标
+        let dragIcon
+        try {
+          dragIcon = nativeImage.createFromPath(tempPath)
+          if (dragIcon.isEmpty()) {
+            dragIcon = nativeImage.createFromBuffer(imageBuffer)
+          }
+          dragIcon = dragIcon.resize({ width: 64, height: 64 })
+        } catch (error) {
+          console.warn('Failed to create drag icon:', error)
+          dragIcon = nativeImage.createEmpty()
+        }
+        
+        // 启动原生拖拽
+        win.webContents.startDrag({
+          file: tempPath,
+          icon: dragIcon
+        })
+        
+        console.log('Drag started successfully')
+        return true
+      } else {
+        console.error('Temp file was not created:', tempPath)
+        return false
+      }
+    }
+    return false
+  } catch (error) {
+    console.error('Failed to start drag:', error)
+    return false
+  }
 })
 
 // New window example arg: new windows url
