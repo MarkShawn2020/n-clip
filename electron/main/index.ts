@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, clipboard, globalShortcut } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, clipboard, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -40,6 +40,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win: BrowserWindow | null = null
+let tray: Tray | null = null
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
@@ -74,7 +75,7 @@ let windowBounds: WindowBounds = {
 
 async function createWindow() {
   win = new BrowserWindow({
-    title: 'n-clip',
+    title: 'NClip',
     x: windowBounds.x,
     y: windowBounds.y,
     width: windowBounds.width,
@@ -94,6 +95,11 @@ async function createWindow() {
       contextIsolation: true,
     },
   })
+  
+  // 设置窗口不在Dock中显示
+  if (process.platform === 'darwin') {
+    app.dock.hide()
+  }
 
   if (VITE_DEV_SERVER_URL) { // #298
     win.loadURL(VITE_DEV_SERVER_URL)
@@ -147,6 +153,9 @@ async function createWindow() {
   
   // 注册全局快捷键
   registerGlobalShortcuts()
+  
+  // 创建系统托盘
+  createTray()
 }
 
 // 注册全局快捷键
@@ -183,6 +192,82 @@ function registerGlobalShortcuts() {
   if (!altShortcutRegistered) {
     console.warn('Failed to register global shortcut CommandOrControl+Alt+C')
   }
+}
+
+// 创建系统托盘
+function createTray() {
+  // 创建托盘图标
+  const iconPath = process.platform === 'darwin' 
+    ? path.join(process.env.VITE_PUBLIC, 'tray-icon.png')
+    : path.join(process.env.VITE_PUBLIC, 'favicon.ico')
+  
+  // 如果没有托盘图标，创建一个简单的
+  let trayIcon
+  try {
+    trayIcon = nativeImage.createFromPath(iconPath)
+  } catch {
+    // 创建一个简单的16x16像素图标
+    trayIcon = nativeImage.createFromNamedImage('NSImageNameFolder', [16, 16])
+  }
+  
+  if (trayIcon.isEmpty()) {
+    trayIcon = nativeImage.createFromNamedImage('NSImageNameFolder', [16, 16])
+  }
+  
+  tray = new Tray(trayIcon)
+  
+  // 创建托盘菜单
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show NClip',
+      click: () => {
+        if (win) {
+          win.show()
+          win.focus()
+        }
+      }
+    },
+    {
+      label: 'Hide NClip',
+      click: () => {
+        if (win) {
+          win.hide()
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Clear History',
+      click: () => {
+        clipboardHistory = []
+        if (win) {
+          win.webContents.send('clipboard:history-updated', clipboardHistory)
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit NClip',
+      click: () => {
+        app.quit()
+      }
+    }
+  ])
+  
+  tray.setContextMenu(contextMenu)
+  tray.setToolTip('NClip - Copy. Paste. Repeat.')
+  
+  // 点击托盘图标显示/隐藏窗口
+  tray.on('click', () => {
+    if (win) {
+      if (win.isVisible()) {
+        win.hide()
+      } else {
+        win.show()
+        win.focus()
+      }
+    }
+  })
 }
 
 // 剪切板监听器
@@ -290,12 +375,19 @@ app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
   win = null
-  if (process.platform !== 'darwin') app.quit()
+  // 不要退出应用，保持托盘运行
+  // if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('will-quit', () => {
   // 清理全局快捷键
   globalShortcut.unregisterAll()
+  
+  // 清理托盘
+  if (tray) {
+    tray.destroy()
+    tray = null
+  }
 })
 
 app.on('second-instance', () => {
