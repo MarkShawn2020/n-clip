@@ -47,6 +47,12 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   // 启动原生拖拽
   startDrag: (item: any) => ipcRenderer.invoke('clipboard:start-drag', item),
   
+  // 删除项目
+  deleteItem: (itemId: string) => ipcRenderer.invoke('clipboard:delete-item', itemId),
+  
+  // 生成分享卡片
+  generateShareCard: (item: any) => ipcRenderer.invoke('clipboard:generate-share-card', item),
+  
   // 移除剪切板监听
   removeClipboardListener: () => {
     ipcRenderer.removeAllListeners('clipboard:changed')

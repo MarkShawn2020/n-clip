@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
 import { ClipboardItem } from '../types/electron'
 import { 
@@ -19,6 +19,7 @@ export default function ClipboardManager() {
   const [windowPosition, setWindowPosition] = useAtom(windowPositionAtom)
   const [, resetSelectedIndex] = useAtom(resetSelectedIndexAtom)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const [fullscreenImage, setFullscreenImage] = useState<ClipboardItem | null>(null)
 
   // 加载剪切板历史
   useEffect(() => {
@@ -183,6 +184,59 @@ export default function ClipboardManager() {
     }
   }
 
+  // 删除项目
+  const handleDeleteItem = async (item: ClipboardItem) => {
+    try {
+      await window.clipboardAPI.deleteItem(item.id)
+      // 更新本地状态
+      setItems(prev => prev.filter(i => i.id !== item.id))
+    } catch (error) {
+      console.error('Failed to delete item:', error)
+    }
+  }
+
+  // 生成分享卡片
+  const handleShareCard = async (item: ClipboardItem) => {
+    try {
+      await window.clipboardAPI.generateShareCard(item)
+    } catch (error) {
+      console.error('Failed to generate share card:', error)
+    }
+  }
+
+  // 处理右键菜单
+  const handleContextMenu = (e: React.MouseEvent, item: ClipboardItem) => {
+    e.preventDefault()
+    // 这里可以显示自定义右键菜单
+    console.log('Context menu for item:', item.id)
+  }
+
+  // 处理图片全屏预览
+  const handleImageFullscreen = (item: ClipboardItem) => {
+    if (item.type === 'image') {
+      setFullscreenImage(item)
+    }
+  }
+
+  // 关闭全屏预览
+  const handleCloseFullscreen = () => {
+    setFullscreenImage(null)
+  }
+
+  // 处理全屏预览的键盘事件
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (fullscreenImage && e.key === 'Escape') {
+        handleCloseFullscreen()
+      }
+    }
+
+    if (fullscreenImage) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [fullscreenImage])
+
   // 获取当前选中项目
   const selectedItem = filteredItems[selectedIndex]
 
@@ -211,10 +265,19 @@ export default function ClipboardManager() {
                 className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''}`}
                 onClick={() => handleItemSelect(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
+                onContextMenu={(e) => handleContextMenu(e, item)}
               >
                 <div className="item-icon">
                   {item.type === 'image' && item.preview ? (
-                    <img src={item.preview} alt="Preview" className="item-image-preview" />
+                    <img 
+                      src={item.preview} 
+                      alt="Preview" 
+                      className="item-image-preview" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleImageFullscreen(item)
+                      }}
+                    />
                   ) : (
                     getItemIcon(item.type)
                   )}
@@ -243,10 +306,28 @@ export default function ClipboardManager() {
           {selectedItem ? (
             <div className="preview-container">
               <div className="preview-header">
-                <div className="preview-type">{selectedItem.type}</div>
-                {selectedItem.size && (
-                  <div className="preview-size">{selectedItem.size}</div>
-                )}
+                <div className="preview-info">
+                  <div className="preview-type">{selectedItem.type}</div>
+                  {selectedItem.size && (
+                    <div className="preview-size">{selectedItem.size}</div>
+                  )}
+                </div>
+                <div className="preview-actions">
+                  <button 
+                    className="action-btn share-btn"
+                    onClick={() => handleShareCard(selectedItem)}
+                    title="生成分享卡片"
+                  >
+                    📤
+                  </button>
+                  <button 
+                    className="action-btn delete-btn"
+                    onClick={() => handleDeleteItem(selectedItem)}
+                    title="删除"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
               
               <div className="preview-content">
@@ -256,6 +337,7 @@ export default function ClipboardManager() {
                     alt="Preview" 
                     className="preview-image"
                     onMouseDown={(e) => handleMouseDown(e, selectedItem)}
+                    onClick={() => handleImageFullscreen(selectedItem)}
                   />
                 ) : (
                   <div className="preview-text">{selectedItem.content}</div>
@@ -283,6 +365,29 @@ export default function ClipboardManager() {
           <span className="brand-tagline">Copy. Paste. Repeat.</span>
         </div>
       </div>
+      
+      {/* 全屏图片预览 */}
+      {fullscreenImage && (
+        <div className="fullscreen-overlay" onClick={handleCloseFullscreen}>
+          <div className="fullscreen-content" onClick={(e) => e.stopPropagation()}>
+            <button className="fullscreen-close" onClick={handleCloseFullscreen}>
+              ✕
+            </button>
+            <img 
+              src={fullscreenImage.preview} 
+              alt="Fullscreen Preview" 
+              className="fullscreen-image"
+              onMouseDown={(e) => handleMouseDown(e, fullscreenImage)}
+            />
+            <div className="fullscreen-info">
+              <div className="fullscreen-title">{fullscreenImage.content}</div>
+              <div className="fullscreen-meta">
+                {fullscreenImage.size} • {new Date(fullscreenImage.timestamp).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

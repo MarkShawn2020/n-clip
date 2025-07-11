@@ -20,6 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "canvas": "^3.1.2",
     "electron-updater": "^6.3.9",
     "jotai": "^2.12.5"
   },

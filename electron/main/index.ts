@@ -53,7 +53,24 @@ interface ClipboardItem {
   preview?: string
   timestamp: number
   size?: string
+  expiryTime?: number // 过期时间戳
 }
+
+// 存储有效期设置（毫秒）
+interface StorageSettings {
+  text: number    // 文本存储时间
+  image: number   // 图片存储时间
+  file: number    // 文件存储时间
+}
+
+// 默认存储设置（7天）
+const defaultStorageSettings: StorageSettings = {
+  text: 7 * 24 * 60 * 60 * 1000,    // 7天
+  image: 3 * 24 * 60 * 60 * 1000,   // 3天
+  file: 1 * 24 * 60 * 60 * 1000     // 1天
+}
+
+let storageSettings: StorageSettings = { ...defaultStorageSettings }
 
 let clipboardHistory: ClipboardItem[] = []
 let lastClipboardContent = ''
@@ -157,6 +174,12 @@ async function createWindow() {
   
   // 创建系统托盘
   createTray()
+  
+  // 启动定期清理过期项目
+  startExpiryCleanup()
+  
+  // 加载存储设置
+  loadStorageSettings()
 }
 
 // 注册全局快捷键
@@ -298,7 +321,8 @@ function startClipboardMonitor() {
         content: `Image: ${imageSize.width}x${imageSize.height}`,
         preview: `data:image/png;base64,${imageBase64}`,
         timestamp: Date.now(),
-        size: `${Math.round(imageBuffer.length / 1024)} KB`
+        size: `${Math.round(imageBuffer.length / 1024)} KB`,
+        expiryTime: Date.now() + storageSettings.image
       }
       
       // 检查是否是新的图片（通过大小和时间戳判断）
@@ -336,7 +360,8 @@ function startClipboardMonitor() {
           id: Date.now().toString(),
           type: 'text',
           content: currentText,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          expiryTime: Date.now() + storageSettings.text
         }
         
         // 添加到历史记录
@@ -370,6 +395,32 @@ function startClipboardMonitor() {
       }
     }
   }, 1000) // 每秒检查一次
+}
+
+// 启动过期清理
+function startExpiryCleanup() {
+  // 每小时清理一次过期项目
+  setInterval(() => {
+    const now = Date.now()
+    const initialLength = clipboardHistory.length
+    
+    clipboardHistory = clipboardHistory.filter(item => {
+      // 如果没有过期时间，保留项目
+      if (!item.expiryTime) return true
+      
+      // 检查是否过期
+      return item.expiryTime > now
+    })
+    
+    // 如果有项目被清理，通知渲染进程
+    if (clipboardHistory.length < initialLength) {
+      console.log(`Cleaned up ${initialLength - clipboardHistory.length} expired items`)
+      
+      if (win) {
+        win.webContents.send('clipboard:history-updated', clipboardHistory)
+      }
+    }
+  }, 60 * 60 * 1000) // 每小时执行一次
 }
 
 app.whenReady().then(createWindow)
@@ -539,6 +590,275 @@ ipcMain.handle('clipboard:start-drag', async (_, item: ClipboardItem) => {
     return false
   }
 })
+
+// 删除剪切板项目
+ipcMain.handle('clipboard:delete-item', async (_, itemId: string) => {
+  try {
+    const index = clipboardHistory.findIndex(item => item.id === itemId)
+    if (index !== -1) {
+      clipboardHistory.splice(index, 1)
+      
+      // 通知渲染进程更新
+      if (win) {
+        win.webContents.send('clipboard:history-updated', clipboardHistory)
+      }
+      
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error('Failed to delete item:', error)
+    return false
+  }
+})
+
+// 生成分享卡片
+ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem) => {
+  try {
+    if (item.type === 'image' && item.preview) {
+      // 为图片生成分享卡片
+      const tempPath = await generateImageShareCard(item)
+      if (tempPath) {
+        // 将生成的卡片复制到剪切板
+        const cardImage = nativeImage.createFromPath(tempPath)
+        clipboard.writeImage(cardImage)
+        
+        // 显示通知
+        if (win) {
+          win.webContents.send('notification', {
+            type: 'success',
+            message: '分享卡片已生成并复制到剪切板'
+          })
+        }
+        
+        return true
+      }
+    } else if (item.type === 'text') {
+      // 为文本生成分享卡片
+      const tempPath = await generateTextShareCard(item)
+      if (tempPath) {
+        const cardImage = nativeImage.createFromPath(tempPath)
+        clipboard.writeImage(cardImage)
+        
+        if (win) {
+          win.webContents.send('notification', {
+            type: 'success',
+            message: '分享卡片已生成并复制到剪切板'
+          })
+        }
+        
+        return true
+      }
+    }
+    
+    return false
+  } catch (error) {
+    console.error('Failed to generate share card:', error)
+    return false
+  }
+})
+
+// 生成图片分享卡片
+async function generateImageShareCard(item: ClipboardItem): Promise<string | null> {
+  try {
+    const { createCanvas, loadImage } = require('canvas')
+    
+    // 创建画布
+    const canvas = createCanvas(800, 600)
+    const ctx = canvas.getContext('2d')
+    
+    // 背景渐变
+    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
+    gradient.addColorStop(0, '#667eea')
+    gradient.addColorStop(1, '#764ba2')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 800, 600)
+    
+    // 添加图片
+    const base64Data = item.preview!.replace(/^data:image\/\w+;base64,/, '')
+    const imageBuffer = Buffer.from(base64Data, 'base64')
+    const image = await loadImage(imageBuffer)
+    
+    // 计算图片位置和大小
+    const maxWidth = 600
+    const maxHeight = 400
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
+    const imageWidth = image.width * scale
+    const imageHeight = image.height * scale
+    const x = (800 - imageWidth) / 2
+    const y = (600 - imageHeight) / 2 - 50
+    
+    // 绘制图片
+    ctx.drawImage(image, x, y, imageWidth, imageHeight)
+    
+    // 添加 NClip 品牌
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('NClip', 400, 550)
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+    ctx.font = '16px Arial'
+    ctx.fillText('Copy. Paste. Repeat.', 400, 580)
+    
+    // 保存为PNG
+    const tempDir = os.tmpdir()
+    const fileName = `nclip-share-${Date.now()}.png`
+    const tempPath = path.join(tempDir, fileName)
+    
+    const buffer = canvas.toBuffer('image/png')
+    await fs.promises.writeFile(tempPath, buffer)
+    
+    return tempPath
+  } catch (error) {
+    console.error('Failed to generate image share card:', error)
+    return null
+  }
+}
+
+// 生成文本分享卡片
+async function generateTextShareCard(item: ClipboardItem): Promise<string | null> {
+  try {
+    const { createCanvas } = require('canvas')
+    
+    // 创建画布
+    const canvas = createCanvas(800, 600)
+    const ctx = canvas.getContext('2d')
+    
+    // 背景渐变
+    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
+    gradient.addColorStop(0, '#667eea')
+    gradient.addColorStop(1, '#764ba2')
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 800, 600)
+    
+    // 添加文本内容
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    ctx.font = '18px Arial'
+    ctx.textAlign = 'center'
+    
+    // 分割文本为多行
+    const maxWidth = 700
+    const lines = wrapText(ctx, item.content, maxWidth)
+    const lineHeight = 30
+    const startY = 300 - (lines.length * lineHeight) / 2
+    
+    lines.forEach((line, index) => {
+      ctx.fillText(line, 400, startY + index * lineHeight)
+    })
+    
+    // 添加 NClip 品牌
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('NClip', 400, 550)
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+    ctx.font = '16px Arial'
+    ctx.fillText('Copy. Paste. Repeat.', 400, 580)
+    
+    // 保存为PNG
+    const tempDir = os.tmpdir()
+    const fileName = `nclip-share-${Date.now()}.png`
+    const tempPath = path.join(tempDir, fileName)
+    
+    const buffer = canvas.toBuffer('image/png')
+    await fs.promises.writeFile(tempPath, buffer)
+    
+    return tempPath
+  } catch (error) {
+    console.error('Failed to generate text share card:', error)
+    return null
+  }
+}
+
+// 文本换行辅助函数
+function wrapText(ctx: any, text: string, maxWidth: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+  
+  for (const word of words) {
+    const testLine = currentLine + word + ' '
+    const metrics = ctx.measureText(testLine)
+    const testWidth = metrics.width
+    
+    if (testWidth > maxWidth && currentLine !== '') {
+      lines.push(currentLine.trim())
+      currentLine = word + ' '
+    } else {
+      currentLine = testLine
+    }
+  }
+  
+  if (currentLine.trim() !== '') {
+    lines.push(currentLine.trim())
+  }
+  
+  return lines.slice(0, 10) // 限制最多10行
+}
+
+// 获取存储设置
+ipcMain.handle('storage:get-settings', () => {
+  return storageSettings
+})
+
+// 设置存储设置
+ipcMain.handle('storage:set-settings', (_, settings: StorageSettings) => {
+  storageSettings = { ...settings }
+  
+  // 更新现有项目的过期时间
+  const now = Date.now()
+  clipboardHistory.forEach(item => {
+    if (item.expiryTime) {
+      const timeLeft = item.expiryTime - now
+      const newExpiryTime = now + storageSettings[item.type]
+      
+      // 如果新的过期时间更长，则更新
+      if (newExpiryTime > item.expiryTime) {
+        item.expiryTime = newExpiryTime
+      }
+    }
+  })
+  
+  // 保存设置到文件
+  const settingsPath = path.join(os.homedir(), '.nclip-settings.json')
+  fs.writeFileSync(settingsPath, JSON.stringify(storageSettings, null, 2))
+  
+  return true
+})
+
+// 手动清理过期项目
+ipcMain.handle('storage:cleanup-expired', () => {
+  const now = Date.now()
+  const initialLength = clipboardHistory.length
+  
+  clipboardHistory = clipboardHistory.filter(item => {
+    if (!item.expiryTime) return true
+    return item.expiryTime > now
+  })
+  
+  const removedCount = initialLength - clipboardHistory.length
+  
+  if (removedCount > 0 && win) {
+    win.webContents.send('clipboard:history-updated', clipboardHistory)
+  }
+  
+  return removedCount
+})
+
+// 启动时加载存储设置
+function loadStorageSettings() {
+  try {
+    const settingsPath = path.join(os.homedir(), '.nclip-settings.json')
+    if (fs.existsSync(settingsPath)) {
+      const savedSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+      storageSettings = { ...defaultStorageSettings, ...savedSettings }
+    }
+  } catch (error) {
+    console.error('Failed to load storage settings:', error)
+  }
+}
 
 // New window example arg: new windows url
 ipcMain.handle('open-win', (_, arg) => {

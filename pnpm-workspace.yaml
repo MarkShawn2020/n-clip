@@ -1,3 +1,7 @@
+ignoredBuiltDependencies:
+  - canvas
+
 onlyBuiltDependencies:
+  - canvas
   - electron
   - esbuild
