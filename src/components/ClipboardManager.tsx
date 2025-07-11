@@ -135,6 +135,9 @@ export default function ClipboardManager() {
     return ''
   }
 
+  // 获取当前选中项目
+  const selectedItem = filteredItems[selectedIndex]
+
   return (
     <div className="clipboard-manager">
       <div className="header">
@@ -151,38 +154,78 @@ export default function ClipboardManager() {
         </div>
       </div>
       
-      <div className="items-container">
-        {filteredItems.map((item, index) => (
-          <div
-            key={item.id}
-            className={`item ${index === selectedIndex ? 'selected' : ''}`}
-            onClick={() => handleItemSelect(item, index)}
-          >
-            <div className="item-icon">
-              {item.type === 'image' && item.preview ? (
-                <img src={item.preview} alt="Preview" className="item-image-preview" />
-              ) : (
-                getItemIcon(item.type)
-              )}
-            </div>
-            <div className="item-content">
-              <div className="item-text">{item.content}</div>
-              {item.size && (
-                <div className="item-size">{item.size}</div>
-              )}
-            </div>
-            <div className="item-shortcut">
-              {getShortcutKey(index)}
-            </div>
+      <div className="main-content">
+        <div className="left-panel">
+          <div className="items-container">
+            {filteredItems.map((item, index) => (
+              <div
+                key={item.id}
+                className={`item ${index === selectedIndex ? 'selected' : ''}`}
+                onClick={() => handleItemSelect(item, index)}
+              >
+                <div className="item-icon">
+                  {item.type === 'image' && item.preview ? (
+                    <img src={item.preview} alt="Preview" className="item-image-preview" />
+                  ) : (
+                    getItemIcon(item.type)
+                  )}
+                </div>
+                <div className="item-content">
+                  <div className="item-text">{item.content}</div>
+                  {item.size && (
+                    <div className="item-size">{item.size}</div>
+                  )}
+                </div>
+                <div className="item-shortcut">
+                  {getShortcutKey(index)}
+                </div>
+              </div>
+            ))}
+            
+            {filteredItems.length === 0 && (
+              <div className="no-results">
+                No items found
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-      
-      {filteredItems.length === 0 && (
-        <div className="no-results">
-          No items found
         </div>
-      )}
+        
+        <div className="right-panel">
+          {selectedItem ? (
+            <div className="preview-container">
+              <div className="preview-header">
+                <div className="preview-type">{selectedItem.type}</div>
+                {selectedItem.size && (
+                  <div className="preview-size">{selectedItem.size}</div>
+                )}
+              </div>
+              
+              <div className="preview-content">
+                {selectedItem.type === 'image' && selectedItem.preview ? (
+                  <img 
+                    src={selectedItem.preview} 
+                    alt="Preview" 
+                    className="preview-image"
+                  />
+                ) : (
+                  <div className="preview-text">{selectedItem.content}</div>
+                )}
+              </div>
+              
+              <div className="preview-footer">
+                <div className="preview-timestamp">
+                  {new Date(selectedItem.timestamp).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="preview-placeholder">
+              <div className="placeholder-icon">📋</div>
+              <div className="placeholder-text">Select an item to preview</div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
