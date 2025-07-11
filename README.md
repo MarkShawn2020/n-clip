@@ -1,91 +1,117 @@
-# electron-vite-react
+# N-Clip
 
-[![awesome-vite](https://awesome.re/mentioned-badge.svg)](https://github.com/vitejs/awesome-vite)
-![GitHub stars](https://img.shields.io/github/stars/caoxiemeihao/vite-react-electron?color=fa6470)
-![GitHub issues](https://img.shields.io/github/issues/caoxiemeihao/vite-react-electron?color=d8b22d)
-![GitHub license](https://img.shields.io/github/license/caoxiemeihao/vite-react-electron)
-[![Required Node.JS >= 14.18.0 || >=16.0.0](https://img.shields.io/static/v1?label=node&message=14.18.0%20||%20%3E=16.0.0&logo=node.js&color=3f893e)](https://nodejs.org/about/releases)
+一个现代化的剪切板管理器，基于 Electron + React + TypeScript 构建。
 
-English | [简体中文](README.zh-CN.md)
+## ✨ 特性
 
-## 👀 Overview
+- 🎯 **智能剪切板监听** - 自动捕获文本和图片内容
+- 🔍 **实时搜索过滤** - 快速找到历史剪切板内容  
+- 🎨 **分享卡片生成** - 将内容转换为精美的分享图片
+- 📱 **多模板支持** - 默认、深色、柔和三种风格
+- 📐 **多比例选择** - 3:4、4:3、1:1 多种比例
+- 💾 **持久化存储** - SQLite 数据库本地存储
+- ⌨️ **全局快捷键** - Cmd+Shift+C 快速唤起
+- 🖱️ **拖拽支持** - 原生文件拖拽功能
+- 🔒 **隐私保护** - 所有数据本地存储，不上传云端
 
-📦 Ready out of the box  
-🎯 Based on the official [template-react-ts](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts), project structure will be familiar to you  
-🌱 Easily extendable and customizable  
-💪 Supports Node.js API in the renderer process  
-🔩 Supports C/C++ native addons  
-🐞 Debugger configuration included  
-🖥 Easy to implement multiple windows  
+## 🚀 快速开始
 
-## 🛫 Quick Setup
+### 环境要求
+
+- Node.js >= 16.0.0
+- pnpm (推荐) 或 npm
+
+### 安装依赖
 
 ```sh
-# clone the project
-git clone https://github.com/electron-vite/electron-vite-react.git
-
-# enter the project directory
-cd electron-vite-react
-
-# install dependency
-npm install
-
-# develop
-npm run dev
+pnpm install
 ```
 
-## 🐞 Debug
+### 开发模式
 
-![electron-vite-react-debug.gif](/electron-vite-react-debug.gif)
-
-## 📂 Directory structure
-
-Familiar React application structure, just with `electron` folder on the top :wink:  
-*Files in this folder will be separated from your React application and built into `dist-electron`*  
-
-```tree
-├── electron                                 Electron-related code
-│   ├── main                                 Main-process source code
-│   └── preload                              Preload-scripts source code
-│
-├── release                                  Generated after production build, contains executables
-│   └── {version}
-│       ├── {os}-{os_arch}                   Contains unpacked application executable
-│       └── {app_name}_{version}.{ext}       Installer for the application
-│
-├── public                                   Static assets
-└── src                                      Renderer source code, your React application
+```sh
+pnpm dev
 ```
 
-<!--
-## 🚨 Be aware
+### 构建应用
 
-This template integrates Node.js API to the renderer process by default. If you want to follow **Electron Security Concerns** you might want to disable this feature. You will have to expose needed API by yourself.  
-
-To get started, remove the option as shown below. This will [modify the Vite configuration and disable this feature](https://github.com/electron-vite/vite-plugin-electron-renderer#config-presets-opinionated).
-
-```diff
-# vite.config.ts
-
-export default {
-  plugins: [
-    ...
--   // Use Node.js API in the Renderer-process
--   renderer({
--     nodeIntegration: true,
--   }),
-    ...
-  ],
-}
+```sh
+pnpm build
 ```
--->
 
-## 🔧 Additional features
+## 🎮 使用方法
 
-1. electron-updater 👉 [see docs](src/components/update/README.md)
-1. playwright
+1. **启动应用** - 应用会在系统托盘中运行
+2. **全局唤起** - 使用 `Cmd+Shift+C` 或 `Cmd+Option+C` 快捷键
+3. **搜索内容** - 在搜索框中输入关键词过滤历史记录
+4. **生成分享** - 点击内容右侧的分享按钮生成精美卡片
+5. **拖拽操作** - 直接拖拽图片到其他应用程序
 
-## ❔ FAQ
+## 🏗️ 技术栈
 
-- [C/C++ addons, Node.js modules - Pre-Bundling](https://github.com/electron-vite/vite-plugin-electron-renderer#dependency-pre-bundling)
-- [dependencies vs devDependencies](https://github.com/electron-vite/vite-plugin-electron-renderer#dependencies-vs-devdependencies)
+- **前端框架**: React 18 + TypeScript
+- **桌面框架**: Electron
+- **构建工具**: Vite
+- **状态管理**: Jotai
+- **数据存储**: SQLite3
+- **图像处理**: Canvas API
+- **样式**: CSS3 + Flexbox
+
+## 📂 项目结构
+
+```
+├── electron/                   # Electron 主进程和预加载脚本
+│   ├── main/                   # 主进程代码
+│   └── preload/                # 预加载脚本
+├── src/                        # React 渲染进程代码
+│   ├── components/             # React 组件
+│   ├── store/                  # 状态管理
+│   └── types/                  # TypeScript 类型定义
+├── public/                     # 静态资源
+└── dist-electron/              # 构建输出目录
+```
+
+## 🔧 配置说明
+
+应用数据存储在 `~/.neurora/n-clip/` 目录下：
+- `clipboard.db` - SQLite 数据库文件
+- 图片文件按日期分目录存储
+
+## 📝 开发说明
+
+### 主要组件
+
+- `ClipboardManager` - 主界面组件
+- `ShareCardWindow` - 分享卡片生成窗口
+- IPC 通信模块 - 主进程与渲染进程通信
+
+### 数据库结构
+
+```sql
+CREATE TABLE clipboard_items (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  content TEXT NOT NULL,
+  preview TEXT,
+  timestamp INTEGER NOT NULL,
+  size TEXT,
+  expiry_time INTEGER
+)
+```
+
+## 🤝 贡献指南
+
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🙏 致谢
+
+- 基于 [electron-vite-react](https://github.com/electron-vite/electron-vite-react) 模板
+- 感谢所有贡献者和开源社区
