@@ -1,9 +1,9 @@
 {
-  "name": "electron-vite-react",
-  "version": "2.2.0",
+  "name": "n-clip",
+  "version": "1.0.0",
   "main": "dist-electron/main/index.js",
-  "description": "Electron Vite React boilerplate.",
-  "author": "草鞋没号 <308487730@qq.com>",
+  "description": "A clipboard manager with Alfred-like interface for neurora.",
+  "author": "neurora",
   "license": "MIT",
   "private": true,
   "debug": {

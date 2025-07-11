@@ -23,6 +23,25 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // ...
 })
 
+// --------- Expose clipboard API ---------
+contextBridge.exposeInMainWorld('clipboardAPI', {
+  // 获取剪切板历史
+  getClipboardHistory: () => ipcRenderer.invoke('clipboard:get-history'),
+  
+  // 设置剪切板内容
+  setClipboardContent: (item: any) => ipcRenderer.invoke('clipboard:set-content', item),
+  
+  // 监听剪切板变化
+  onClipboardChange: (callback: (content: any) => void) => {
+    ipcRenderer.on('clipboard:changed', (_, content) => callback(content))
+  },
+  
+  // 移除剪切板监听
+  removeClipboardListener: () => {
+    ipcRenderer.removeAllListeners('clipboard:changed')
+  }
+})
+
 // --------- Preload scripts loading ---------
 function domReady(condition: DocumentReadyState[] = ['complete', 'interactive']) {
   return new Promise(resolve => {
