@@ -88,7 +88,7 @@ export default function ClipboardManager() {
       } else if (e.key === 'Enter') {
         e.preventDefault()
         if (filteredItems[selectedIndex]) {
-          handleItemSelect(filteredItems[selectedIndex])
+          handleItemSelect(filteredItems[selectedIndex], selectedIndex)
         }
       }
     }
@@ -105,8 +105,11 @@ export default function ClipboardManager() {
   }, [])
 
   // 选择项目
-  const handleItemSelect = async (item: ClipboardItem) => {
+  const handleItemSelect = async (item: ClipboardItem, index: number) => {
     try {
+      // 更新选中索引
+      setSelectedIndex(index)
+      
       await window.clipboardAPI.setClipboardContent(item)
       console.log('Content copied to clipboard:', item.content)
     } catch (error) {
@@ -153,7 +156,7 @@ export default function ClipboardManager() {
           <div
             key={item.id}
             className={`item ${index === selectedIndex ? 'selected' : ''}`}
-            onClick={() => handleItemSelect(item)}
+            onClick={() => handleItemSelect(item, index)}
           >
             <div className="item-icon">
               {item.type === 'image' && item.preview ? (
