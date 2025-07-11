@@ -51,7 +51,13 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   deleteItem: (itemId: string) => ipcRenderer.invoke('clipboard:delete-item', itemId),
   
   // 生成分享卡片
-  generateShareCard: (item: any) => ipcRenderer.invoke('clipboard:generate-share-card', item),
+  generateShareCard: (item: any, template?: string, ratio?: string) => ipcRenderer.invoke('clipboard:generate-share-card', item, template, ratio),
+  
+  // 生成分享卡片预览
+  generateShareCardPreview: (item: any, template?: string, ratio?: string) => ipcRenderer.invoke('clipboard:generate-share-card-preview', item, template, ratio),
+
+  // 打开分享卡片窗口
+  openShareCardWindow: (item: any) => ipcRenderer.invoke('share-card:open', item),
   
   // 移除剪切板监听
   removeClipboardListener: () => {

@@ -195,14 +195,16 @@ export default function ClipboardManager() {
     }
   }
 
-  // 生成分享卡片
+  // 打开分享卡片窗口
   const handleShareCard = async (item: ClipboardItem) => {
     try {
-      await window.clipboardAPI.generateShareCard(item)
+      console.log('Opening share card window for item:', item.type, item.id)
+      await window.clipboardAPI.openShareCardWindow(item)
     } catch (error) {
-      console.error('Failed to generate share card:', error)
+      console.error('Failed to open share card window:', error)
     }
   }
+
 
   // 处理右键菜单
   const handleContextMenu = (e: React.MouseEvent, item: ClipboardItem) => {
@@ -312,6 +314,8 @@ export default function ClipboardManager() {
                     <div className="preview-size">{selectedItem.size}</div>
                   )}
                 </div>
+                
+                
                 <div className="preview-actions">
                   <button 
                     className="action-btn share-btn"

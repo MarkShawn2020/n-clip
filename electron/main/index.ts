@@ -42,6 +42,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win: BrowserWindow | null = null
+let shareCardWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
@@ -83,7 +84,7 @@ let db: sqlite3.Database | null = null
 // 初始化数据库
 async function initDatabase() {
   return new Promise<void>((resolve, reject) => {
-    const dbPath = path.join(os.homedir(), '.nclip', 'clipboard.db')
+    const dbPath = path.join(os.homedir(), '.neurora', 'n-clip', 'clipboard.db')
     
     // 确保目录存在
     const dbDir = path.dirname(dbPath)
@@ -354,6 +355,87 @@ async function createWindow() {
   
   // 启动定期清理过期项目
   startExpiryCleanup()
+}
+
+// 创建分享卡片窗口
+async function createShareCardWindow(item: ClipboardItem) {
+  try {
+    // 如果窗口已存在，先关闭
+    if (shareCardWindow) {
+      shareCardWindow.close()
+      shareCardWindow = null
+    }
+
+    console.log('Creating share card window...')
+    shareCardWindow = new BrowserWindow({
+      title: '生成分享卡片',
+      width: 800,
+      height: 600,
+      minWidth: 600,
+      minHeight: 500,
+      frame: true,
+      transparent: false,
+      resizable: true,
+      alwaysOnTop: true,
+      show: false,
+      webPreferences: {
+        preload,
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    })
+
+    if (!shareCardWindow) {
+      throw new Error('Failed to create BrowserWindow')
+    }
+
+    console.log('Share card window created, loading URL...')
+    
+    // 加载分享卡片页面
+    if (VITE_DEV_SERVER_URL) {
+      await shareCardWindow.loadURL(`${VITE_DEV_SERVER_URL}#share-card`)
+    } else {
+      await shareCardWindow.loadFile(indexHtml, { hash: 'share-card' })
+    }
+
+    console.log('Share card window URL loaded')
+
+    // 检查窗口是否仍然存在
+    if (!shareCardWindow || shareCardWindow.isDestroyed()) {
+      throw new Error('Share card window was destroyed during creation')
+    }
+
+    // 窗口关闭时清理
+    shareCardWindow.on('closed', () => {
+      console.log('Share card window closed')
+      shareCardWindow = null
+    })
+
+    // 窗口准备好后显示
+    shareCardWindow.once('ready-to-show', () => {
+      console.log('Share card window ready to show')
+      if (shareCardWindow && !shareCardWindow.isDestroyed()) {
+        shareCardWindow.show()
+        shareCardWindow.focus()
+        
+        // 发送初始数据到渲染进程
+        shareCardWindow.webContents.send('share-card-data', item)
+      }
+    })
+
+    // 如果窗口已经ready，立即显示
+    if (shareCardWindow.webContents.isLoadingMainFrame() === false) {
+      shareCardWindow.show()
+      shareCardWindow.focus()
+      shareCardWindow.webContents.send('share-card-data', item)
+    }
+
+    return shareCardWindow
+  } catch (error) {
+    console.error('Error creating share card window:', error)
+    shareCardWindow = null
+    throw error
+  }
 }
 
 // 注册全局快捷键
@@ -815,15 +897,20 @@ ipcMain.handle('clipboard:delete-item', async (_, itemId: string) => {
 })
 
 // 生成分享卡片
-ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem) => {
+ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem, template: string = 'default', ratio: string = '3:4') => {
   try {
+    console.log('Generate share card request for item:', item.type, item.id)
+    
     if (item.type === 'image' && item.preview) {
+      console.log('Processing image share card...')
       // 为图片生成分享卡片
-      const tempPath = await generateImageShareCard(item)
+      const tempPath = await generateImageShareCard(item, template, ratio)
       if (tempPath) {
         // 将生成的卡片复制到剪切板
         const cardImage = nativeImage.createFromPath(tempPath)
         clipboard.writeImage(cardImage)
+        
+        console.log('Image share card copied to clipboard')
         
         // 显示通知
         if (win) {
@@ -834,13 +921,18 @@ ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem) =
         }
         
         return true
+      } else {
+        console.error('Failed to generate image share card - tempPath is null')
       }
     } else if (item.type === 'text') {
+      console.log('Processing text share card...')
       // 为文本生成分享卡片
-      const tempPath = await generateTextShareCard(item)
+      const tempPath = await generateTextShareCard(item, template, ratio)
       if (tempPath) {
         const cardImage = nativeImage.createFromPath(tempPath)
         clipboard.writeImage(cardImage)
+        
+        console.log('Text share card copied to clipboard')
         
         if (win) {
           win.webContents.send('notification', {
@@ -850,31 +942,114 @@ ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem) =
         }
         
         return true
+      } else {
+        console.error('Failed to generate text share card - tempPath is null')
       }
     }
     
+    console.log('No valid share card generation path found')
     return false
   } catch (error) {
     console.error('Failed to generate share card:', error)
+    console.error('Error details:', error.stack)
     return false
   }
 })
 
-// 生成图片分享卡片
-async function generateImageShareCard(item: ClipboardItem): Promise<string | null> {
+// 打开分享卡片窗口
+ipcMain.handle('share-card:open', async (_, item: ClipboardItem) => {
   try {
+    console.log('IPC: Opening share card window for item:', item.type, item.id)
+    
+    // 如果窗口已经存在且未销毁，先关闭它
+    if (shareCardWindow && !shareCardWindow.isDestroyed()) {
+      console.log('Closing existing share card window')
+      shareCardWindow.close()
+      shareCardWindow = null
+      // 等待一下确保窗口完全关闭
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    await createShareCardWindow(item)
+    return true
+  } catch (error) {
+    console.error('Failed to open share card window:', error)
+    return false
+  }
+})
+
+// 生成分享卡片预览（返回base64图片用于预览）
+ipcMain.handle('clipboard:generate-share-card-preview', async (_, item: ClipboardItem, template: string = 'default', ratio: string = '3:4') => {
+  try {
+    console.log('Generate share card preview request for item:', item.type, item.id, 'template:', template, 'ratio:', ratio)
+    
+    let tempPath: string | null = null
+    
+    if (item.type === 'image' && item.preview) {
+      tempPath = await generateImageShareCard(item, template, ratio)
+    } else if (item.type === 'text') {
+      tempPath = await generateTextShareCard(item, template, ratio)
+    }
+    
+    if (tempPath) {
+      // 读取生成的图片文件并转换为base64
+      const imageBuffer = await fs.promises.readFile(tempPath)
+      const base64Image = `data:image/png;base64,${imageBuffer.toString('base64')}`
+      
+      // 删除临时文件
+      try {
+        await fs.promises.unlink(tempPath)
+      } catch (error) {
+        console.warn('Failed to delete temp file:', error)
+      }
+      
+      return base64Image
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Failed to generate share card preview:', error)
+    return null
+  }
+})
+
+// 生成图片分享卡片
+async function generateImageShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4'): Promise<string | null> {
+  try {
+    console.log('Starting image share card generation...')
     const { createCanvas, loadImage } = require('canvas')
     
+    // 计算画布尺寸
+    let width: number, height: number
+    if (ratio === '4:3') {
+      width = 800
+      height = 600
+    } else if (ratio === '1:1') {
+      width = 600
+      height = 600
+    } else { // 默认 3:4
+      width = 600
+      height = 800
+    }
+    
     // 创建画布
-    const canvas = createCanvas(800, 600)
+    const canvas = createCanvas(width, height)
     const ctx = canvas.getContext('2d')
     
     // 背景渐变
-    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
-    gradient.addColorStop(0, '#667eea')
-    gradient.addColorStop(1, '#764ba2')
+    const gradient = ctx.createLinearGradient(0, 0, width, height)
+    if (template === 'dark') {
+      gradient.addColorStop(0, '#1a1a1a')
+      gradient.addColorStop(1, '#2d2d2d')
+    } else if (template === 'pastel') {
+      gradient.addColorStop(0, '#ffeaa7')
+      gradient.addColorStop(1, '#fab1a0')
+    } else {
+      gradient.addColorStop(0, '#667eea')
+      gradient.addColorStop(1, '#764ba2')
+    }
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, 800, 600)
+    ctx.fillRect(0, 0, width, height)
     
     // 添加图片
     const base64Data = item.preview!.replace(/^data:image\/\w+;base64,/, '')
@@ -882,26 +1057,26 @@ async function generateImageShareCard(item: ClipboardItem): Promise<string | nul
     const image = await loadImage(imageBuffer)
     
     // 计算图片位置和大小
-    const maxWidth = 600
-    const maxHeight = 400
+    const maxWidth = width - 100
+    const maxHeight = height - 200
     const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
     const imageWidth = image.width * scale
     const imageHeight = image.height * scale
-    const x = (800 - imageWidth) / 2
-    const y = (600 - imageHeight) / 2 - 50
+    const x = (width - imageWidth) / 2
+    const y = (height - imageHeight) / 2 - 50
     
     // 绘制图片
     ctx.drawImage(image, x, y, imageWidth, imageHeight)
     
     // 添加 NClip 品牌
     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = 'bold 24px Arial'
+    ctx.font = 'bold 28px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('NClip', 400, 550)
+    ctx.fillText('NClip', width / 2, height - 80)
     
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.font = '16px Arial'
-    ctx.fillText('Copy. Paste. Repeat.', 400, 580)
+    ctx.font = '18px Arial'
+    ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
     
     // 保存为PNG
     const tempDir = os.tmpdir()
@@ -911,53 +1086,99 @@ async function generateImageShareCard(item: ClipboardItem): Promise<string | nul
     const buffer = canvas.toBuffer('image/png')
     await fs.promises.writeFile(tempPath, buffer)
     
+    console.log('Image share card generated successfully:', tempPath)
     return tempPath
   } catch (error) {
     console.error('Failed to generate image share card:', error)
+    console.error('Error details:', error.stack)
     return null
   }
 }
 
 // 生成文本分享卡片
-async function generateTextShareCard(item: ClipboardItem): Promise<string | null> {
+async function generateTextShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4'): Promise<string | null> {
   try {
+    console.log('Starting text share card generation...')
     const { createCanvas } = require('canvas')
     
+    // 计算画布尺寸
+    let width: number, height: number
+    if (ratio === '4:3') {
+      width = 800
+      height = 600
+    } else if (ratio === '1:1') {
+      width = 600
+      height = 600
+    } else { // 默认 3:4
+      width = 600
+      height = 800
+    }
+    
     // 创建画布
-    const canvas = createCanvas(800, 600)
+    const canvas = createCanvas(width, height)
     const ctx = canvas.getContext('2d')
     
     // 背景渐变
-    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
-    gradient.addColorStop(0, '#667eea')
-    gradient.addColorStop(1, '#764ba2')
+    const gradient = ctx.createLinearGradient(0, 0, width, height)
+    if (template === 'dark') {
+      gradient.addColorStop(0, '#1a1a1a')
+      gradient.addColorStop(1, '#2d2d2d')
+    } else if (template === 'pastel') {
+      gradient.addColorStop(0, '#ffeaa7')
+      gradient.addColorStop(1, '#fab1a0')
+    } else {
+      gradient.addColorStop(0, '#667eea')
+      gradient.addColorStop(1, '#764ba2')
+    }
     ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, 800, 600)
+    ctx.fillRect(0, 0, width, height)
+    
+    // 设置文本颜色
+    const textColor = template === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 
+                      template === 'pastel' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)'
     
     // 添加文本内容
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = '18px Arial'
+    ctx.fillStyle = textColor
+    ctx.font = '20px Arial'
     ctx.textAlign = 'center'
     
-    // 分割文本为多行
-    const maxWidth = 700
+    // 分割文本为多行，考虑画布高度
+    const maxWidth = width - 80
+    const maxContentHeight = height - 200 // 留出品牌区域
     const lines = wrapText(ctx, item.content, maxWidth)
-    const lineHeight = 30
-    const startY = 300 - (lines.length * lineHeight) / 2
+    const lineHeight = 32
+    const totalTextHeight = lines.length * lineHeight
     
-    lines.forEach((line, index) => {
-      ctx.fillText(line, 400, startY + index * lineHeight)
+    // 如果文本太长，减少行数并添加省略号
+    let displayLines = lines
+    if (totalTextHeight > maxContentHeight) {
+      const maxLines = Math.floor(maxContentHeight / lineHeight) - 1
+      displayLines = lines.slice(0, maxLines)
+      if (displayLines.length > 0) {
+        displayLines[displayLines.length - 1] = displayLines[displayLines.length - 1] + '...'
+      }
+    }
+    
+    // 计算起始Y位置，垂直居中
+    const actualTextHeight = displayLines.length * lineHeight
+    const startY = (height - actualTextHeight) / 2 - 50
+    
+    // 绘制文本
+    displayLines.forEach((line, index) => {
+      ctx.fillText(line, width / 2, startY + index * lineHeight)
     })
     
     // 添加 NClip 品牌
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = 'bold 24px Arial'
+    const brandColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)'
+    ctx.fillStyle = brandColor
+    ctx.font = 'bold 28px Arial'
     ctx.textAlign = 'center'
-    ctx.fillText('NClip', 400, 550)
+    ctx.fillText('NClip', width / 2, height - 80)
     
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.font = '16px Arial'
-    ctx.fillText('Copy. Paste. Repeat.', 400, 580)
+    const taglineColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)'
+    ctx.fillStyle = taglineColor
+    ctx.font = '18px Arial'
+    ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
     
     // 保存为PNG
     const tempDir = os.tmpdir()
@@ -967,37 +1188,71 @@ async function generateTextShareCard(item: ClipboardItem): Promise<string | null
     const buffer = canvas.toBuffer('image/png')
     await fs.promises.writeFile(tempPath, buffer)
     
+    console.log('Text share card generated successfully:', tempPath)
     return tempPath
   } catch (error) {
     console.error('Failed to generate text share card:', error)
+    console.error('Error details:', error.stack)
     return null
   }
 }
 
 // 文本换行辅助函数
 function wrapText(ctx: any, text: string, maxWidth: number): string[] {
-  const words = text.split(' ')
   const lines: string[] = []
-  let currentLine = ''
   
-  for (const word of words) {
-    const testLine = currentLine + word + ' '
-    const metrics = ctx.measureText(testLine)
-    const testWidth = metrics.width
+  // 按换行符分割段落
+  const paragraphs = text.split('\n')
+  
+  for (const paragraph of paragraphs) {
+    if (paragraph.trim() === '') {
+      lines.push('')
+      continue
+    }
     
-    if (testWidth > maxWidth && currentLine !== '') {
-      lines.push(currentLine.trim())
-      currentLine = word + ' '
-    } else {
-      currentLine = testLine
+    // 处理每个段落
+    const words = paragraph.split(' ')
+    let currentLine = ''
+    
+    for (const word of words) {
+      const testLine = currentLine + (currentLine ? ' ' : '') + word
+      const metrics = ctx.measureText(testLine)
+      const testWidth = metrics.width
+      
+      if (testWidth > maxWidth && currentLine !== '') {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+      
+      // 如果单个单词就超过宽度，强制换行
+      if (ctx.measureText(currentLine).width > maxWidth) {
+        const chars = currentLine.split('')
+        let charLine = ''
+        
+        for (const char of chars) {
+          const testCharLine = charLine + char
+          if (ctx.measureText(testCharLine).width > maxWidth && charLine !== '') {
+            lines.push(charLine)
+            charLine = char
+          } else {
+            charLine = testCharLine
+          }
+        }
+        
+        if (charLine) {
+          currentLine = charLine
+        }
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine)
     }
   }
   
-  if (currentLine.trim() !== '') {
-    lines.push(currentLine.trim())
-  }
-  
-  return lines.slice(0, 10) // 限制最多10行
+  return lines
 }
 
 // 获取存储设置
@@ -1024,7 +1279,11 @@ ipcMain.handle('storage:set-settings', (_, settings: StorageSettings) => {
   })
   
   // 保存设置到文件
-  const settingsPath = path.join(os.homedir(), '.nclip-settings.json')
+  const settingsPath = path.join(os.homedir(), '.neurora', 'n-clip', 'settings.json')
+  const settingsDir = path.dirname(settingsPath)
+  if (!fs.existsSync(settingsDir)) {
+    fs.mkdirSync(settingsDir, { recursive: true })
+  }
   fs.writeFileSync(settingsPath, JSON.stringify(storageSettings, null, 2))
   
   return true
@@ -1055,7 +1314,7 @@ ipcMain.handle('storage:cleanup-expired', async () => {
 // 启动时加载存储设置
 function loadStorageSettings() {
   try {
-    const settingsPath = path.join(os.homedir(), '.nclip-settings.json')
+    const settingsPath = path.join(os.homedir(), '.neurora', 'n-clip', 'settings.json')
     if (fs.existsSync(settingsPath)) {
       const savedSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
       storageSettings = { ...defaultStorageSettings, ...savedSettings }
