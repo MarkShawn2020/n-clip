@@ -56,6 +56,9 @@ contextBridge.exposeInMainWorld('windowAPI', {
   // 设置窗口边界
   setBounds: (bounds: any) => ipcRenderer.invoke('window:set-bounds', bounds),
   
+  // 隐藏窗口
+  hideWindow: () => ipcRenderer.invoke('window:hide'),
+  
   // 监听窗口边界变化
   onBoundsChanged: (callback: (bounds: any) => void) => {
     ipcRenderer.on('window-bounds-changed', (_, bounds) => callback(bounds))

@@ -363,6 +363,13 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
   return true
 })
 
+ipcMain.handle('window:hide', () => {
+  if (win) {
+    win.hide()
+  }
+  return true
+})
+
 // New window example arg: new windows url
 ipcMain.handle('open-win', (_, arg) => {
   const childWindow = new BrowserWindow({

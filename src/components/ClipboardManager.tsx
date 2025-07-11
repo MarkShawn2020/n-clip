@@ -97,10 +97,21 @@ export default function ClipboardManager() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [filteredItems, selectedIndex])
 
-  // 自动聚焦搜索框
+  // 自动聚焦搜索框和失焦隐藏
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus()
+    }
+    
+    // 监听窗口失焦事件
+    const handleBlur = () => {
+      window.windowAPI.hideWindow()
+    }
+    
+    window.addEventListener('blur', handleBlur)
+    
+    return () => {
+      window.removeEventListener('blur', handleBlur)
     }
   }, [])
 
@@ -224,6 +235,13 @@ export default function ClipboardManager() {
               <div className="placeholder-text">Select an item to preview</div>
             </div>
           )}
+        </div>
+      </div>
+      
+      <div className="footer">
+        <div className="branding">
+          <span className="brand-name">NClip</span>
+          <span className="brand-tagline">Copy. Paste. Repeat.</span>
         </div>
       </div>
     </div>
