@@ -391,6 +391,50 @@ async function createShareCardWindow(item: ClipboardItem) {
 
     console.log('Share card window created, loading URL...')
     
+    // 窗口关闭时清理
+    shareCardWindow.on('closed', () => {
+      console.log('Share card window closed')
+      shareCardWindow = null
+    })
+
+    // 创建一个Promise来确保窗口完全准备好
+    const windowReadyPromise = new Promise<void>((resolve) => {
+      let isResolved = false
+      
+      const showWindow = () => {
+        if (isResolved || !shareCardWindow || shareCardWindow.isDestroyed()) return
+        isResolved = true
+        
+        console.log('Showing share card window')
+        shareCardWindow.show()
+        shareCardWindow.focus()
+        
+        // 延迟发送数据，确保渲染进程完全准备好
+        setTimeout(() => {
+          if (shareCardWindow && !shareCardWindow.isDestroyed()) {
+            console.log('Sending share card data')
+            shareCardWindow.webContents.send('share-card-data', item)
+          }
+        }, 200)
+        
+        resolve()
+      }
+      
+      // 监听ready-to-show事件
+      shareCardWindow.once('ready-to-show', () => {
+        console.log('Share card window ready to show')
+        showWindow()
+      })
+      
+      // 超时保护 - 如果3秒内还没显示，强制显示
+      setTimeout(() => {
+        if (!isResolved && shareCardWindow && !shareCardWindow.isDestroyed()) {
+          console.log('Force showing share card window due to timeout')
+          showWindow()
+        }
+      }, 3000)
+    })
+    
     // 加载分享卡片页面
     if (VITE_DEV_SERVER_URL) {
       await shareCardWindow.loadURL(`${VITE_DEV_SERVER_URL}#share-card`)
@@ -405,30 +449,8 @@ async function createShareCardWindow(item: ClipboardItem) {
       throw new Error('Share card window was destroyed during creation')
     }
 
-    // 窗口关闭时清理
-    shareCardWindow.on('closed', () => {
-      console.log('Share card window closed')
-      shareCardWindow = null
-    })
-
-    // 窗口准备好后显示
-    shareCardWindow.once('ready-to-show', () => {
-      console.log('Share card window ready to show')
-      if (shareCardWindow && !shareCardWindow.isDestroyed()) {
-        shareCardWindow.show()
-        shareCardWindow.focus()
-        
-        // 发送初始数据到渲染进程
-        shareCardWindow.webContents.send('share-card-data', item)
-      }
-    })
-
-    // 如果窗口已经ready，立即显示
-    if (shareCardWindow.webContents.isLoadingMainFrame() === false) {
-      shareCardWindow.show()
-      shareCardWindow.focus()
-      shareCardWindow.webContents.send('share-card-data', item)
-    }
+    // 等待窗口完全准备好
+    await windowReadyPromise
 
     return shareCardWindow
   } catch (error) {
