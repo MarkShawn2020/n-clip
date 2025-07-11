@@ -369,10 +369,10 @@ async function createShareCardWindow(item: ClipboardItem) {
     console.log('Creating share card window...')
     shareCardWindow = new BrowserWindow({
       title: '生成分享卡片',
-      width: 800,
-      height: 600,
-      minWidth: 600,
-      minHeight: 500,
+      width: 1000,
+      height: 700,
+      minWidth: 800,
+      minHeight: 600,
       frame: true,
       transparent: false,
       resizable: true,
@@ -1043,7 +1043,35 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
     
     // 计算画布尺寸
     let width: number, height: number
-    if (ratio === '4:3') {
+    if (ratio === 'auto') {
+      // 自适应：根据原图比例计算合适的画布尺寸
+      const base64Data = item.preview!.replace(/^data:image\/\w+;base64,/, '')
+      const imageBuffer = Buffer.from(base64Data, 'base64')
+      const tempImage = await loadImage(imageBuffer)
+      const aspectRatio = tempImage.width / tempImage.height
+      
+      if (aspectRatio > 1) {
+        // 横向图片
+        width = 800
+        height = Math.round(800 / aspectRatio)
+        // 确保最小高度
+        if (height < 500) {
+          height = 500
+          width = Math.round(500 * aspectRatio)
+        }
+      } else {
+        // 竖向或方形图片
+        height = 800
+        width = Math.round(800 * aspectRatio)
+        // 确保最小宽度
+        if (width < 500) {
+          width = 500
+          height = Math.round(500 / aspectRatio)
+        }
+      }
+      // 为品牌信息留出空间
+      height += 120
+    } else if (ratio === '4:3') {
       width = 800
       height = 600
     } else if (ratio === '1:1') {
@@ -1090,14 +1118,17 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
     // 绘制图片
     ctx.drawImage(image, x, y, imageWidth, imageHeight)
     
-    // 添加 NClip 品牌
+    // 添加 NClip 品牌 - 根据画布尺寸动态调整字体大小
+    const brandFontSize = Math.max(20, Math.min(32, width * 0.045)) // 根据宽度调整，范围 20-32px
+    const taglineFontSize = Math.max(12, Math.min(20, width * 0.028)) // 根据宽度调整，范围 12-20px
+    
     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = 'bold 28px Arial'
+    ctx.font = `bold ${brandFontSize}px Arial`
     ctx.textAlign = 'center'
     ctx.fillText('NClip', width / 2, height - 80)
     
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.font = '18px Arial'
+    ctx.font = `${taglineFontSize}px Arial`
     ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
     
     // 保存为PNG
@@ -1125,7 +1156,23 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
     
     // 计算画布尺寸
     let width: number, height: number
-    if (ratio === '4:3') {
+    if (ratio === 'auto') {
+      // 自适应：根据文本长度计算合适的画布尺寸
+      const textLength = item.content.length
+      if (textLength < 100) {
+        // 短文本，偏向方形
+        width = 600
+        height = 600
+      } else if (textLength < 300) {
+        // 中等文本，偏向竖向
+        width = 600
+        height = 800
+      } else {
+        // 长文本，使用更高的画布
+        width = 700
+        height = 900
+      }
+    } else if (ratio === '4:3') {
       width = 800
       height = 600
     } else if (ratio === '1:1') {
@@ -1190,16 +1237,19 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
       ctx.fillText(line, width / 2, startY + index * lineHeight)
     })
     
-    // 添加 NClip 品牌
+    // 添加 NClip 品牌 - 根据画布尺寸动态调整字体大小
+    const brandFontSize = Math.max(20, Math.min(32, width * 0.045)) // 根据宽度调整，范围 20-32px
+    const taglineFontSize = Math.max(12, Math.min(20, width * 0.028)) // 根据宽度调整，范围 12-20px
+    
     const brandColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)'
     ctx.fillStyle = brandColor
-    ctx.font = 'bold 28px Arial'
+    ctx.font = `bold ${brandFontSize}px Arial`
     ctx.textAlign = 'center'
     ctx.fillText('NClip', width / 2, height - 80)
     
     const taglineColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)'
     ctx.fillStyle = taglineColor
-    ctx.font = '18px Arial'
+    ctx.font = `${taglineFontSize}px Arial`
     ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
     
     // 保存为PNG

@@ -9,17 +9,30 @@ export default function ShareCardWindow() {
   const [previewImageSrc, setPreviewImageSrc] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
+  const templates = [
+    { value: 'default', label: '默认蓝' },
+    { value: 'dark', label: '深色调' },
+    { value: 'pastel', label: '柔和色' }
+  ]
+
+  const ratios = [
+    { value: 'auto', label: '自适应' },
+    { value: '3:4', label: '3:4 竖向' },
+    { value: '4:3', label: '4:3 横向' },
+    { value: '1:1', label: '1:1 方形' }
+  ]
+
   // 接收来自主进程的数据
   useEffect(() => {
     const handleShareCardData = (event: any, item: ClipboardItem) => {
       console.log('Received share card data:', item)
       setClipboardItem(item)
       setSelectedTemplate('default')
-      setSelectedRatio('3:4')
+      setSelectedRatio('auto')
       setPreviewImageSrc(null)
       
       // 自动生成第一个预览
-      generatePreview(item, 'default', '3:4')
+      generatePreview(item, 'default', 'auto')
     }
 
     window.ipcRenderer.on('share-card-data', handleShareCardData)
@@ -94,122 +107,104 @@ export default function ShareCardWindow() {
 
   return (
     <div className="share-card-window">
-      <div className="share-card-header">
-        <div className="share-card-title">
-          <span>生成分享卡片</span>
-          <span className="share-card-type">({clipboardItem.type})</span>
+      {/* 顶部控制栏 */}
+      <div className="toolbar">
+        <div className="toolbar-left">
+          <h1 className="toolbar-title">分享卡片</h1>
+          <span className="content-type">{clipboardItem.type}</span>
         </div>
-        <div className="share-card-info">
-          <span className="item-timestamp">
-            {new Date(clipboardItem.timestamp).toLocaleString()}
-          </span>
-        </div>
-      </div>
-
-      <div className="share-card-main">
-        <div className="share-card-controls">
-          <div className="controls-section">
-            <h3>模板设置</h3>
-            <div className="template-grid">
-              {[
-                { value: 'default', label: '默认', color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-                { value: 'dark', label: '深色', color: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' },
-                { value: 'pastel', label: '柔和', color: 'linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%)' }
-              ].map(template => (
-                <button
-                  key={template.value}
-                  className={`template-option ${selectedTemplate === template.value ? 'selected' : ''}`}
-                  onClick={() => handleTemplateChange(template.value)}
-                >
-                  <div 
-                    className="template-preview" 
-                    style={{ background: template.color }}
-                  ></div>
-                  <span>{template.label}</span>
-                </button>
+        
+        <div className="toolbar-controls">
+          <div className="control-group">
+            <label className="control-label">模板</label>
+            <select 
+              className="select"
+              value={selectedTemplate}
+              onChange={(e) => handleTemplateChange(e.target.value)}
+            >
+              {templates.map(template => (
+                <option key={template.value} value={template.value}>
+                  {template.label}
+                </option>
               ))}
-            </div>
-          </div>
-
-          <div className="controls-section">
-            <h3>比例设置</h3>
-            <div className="ratio-grid">
-              {[
-                { value: '3:4', label: '3:4 (竖向)', width: '30px', height: '40px' },
-                { value: '4:3', label: '4:3 (横向)', width: '40px', height: '30px' },
-                { value: '1:1', label: '1:1 (方形)', width: '35px', height: '35px' }
-              ].map(ratio => (
-                <button
-                  key={ratio.value}
-                  className={`ratio-option ${selectedRatio === ratio.value ? 'selected' : ''}`}
-                  onClick={() => handleRatioChange(ratio.value)}
-                >
-                  <div 
-                    className="ratio-preview" 
-                    style={{ width: ratio.width, height: ratio.height }}
-                  ></div>
-                  <span>{ratio.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="controls-section">
-            <h3>内容预览</h3>
-            <div className="content-preview">
-              {clipboardItem.type === 'image' && clipboardItem.preview ? (
-                <img src={clipboardItem.preview} alt="Content" className="content-thumbnail" />
-              ) : (
-                <div className="content-text">
-                  {clipboardItem.content.length > 100 
-                    ? clipboardItem.content.substring(0, 100) + '...' 
-                    : clipboardItem.content}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="share-card-preview-area">
-          <div className="preview-header">
-            <h3>预览</h3>
-            <span className="preview-info">{selectedTemplate} • {selectedRatio}</span>
+            </select>
           </div>
           
-          <div className="preview-container">
-            {isGenerating ? (
-              <div className="preview-loading">
-                <div className="loading-spinner"></div>
-                <span>生成中...</span>
-              </div>
-            ) : previewImageSrc ? (
-              <img 
-                src={previewImageSrc} 
-                alt="Share Card Preview" 
-                className="preview-image"
-              />
-            ) : (
-              <div className="preview-placeholder">
-                <div className="placeholder-icon">🎨</div>
-                <div className="placeholder-text">预览生成中...</div>
-              </div>
-            )}
+          <div className="control-group">
+            <label className="control-label">比例</label>
+            <select 
+              className="select"
+              value={selectedRatio}
+              onChange={(e) => handleRatioChange(e.target.value)}
+            >
+              {ratios.map(ratio => (
+                <option key={ratio.value} value={ratio.value}>
+                  {ratio.label}
+                </option>
+              ))}
+            </select>
           </div>
-
-          <div className="preview-actions">
+          
+          <div className="control-actions">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => window.close()}
+            >
+              取消
+            </button>
             <button 
               className="btn btn-primary"
               onClick={copyShareCard}
               disabled={isGenerating || !previewImageSrc}
             >
-              {isGenerating ? '生成中...' : '复制到剪切板'}
+              {isGenerating ? '生成中...' : '复制'}
             </button>
-            <button 
-              className="btn btn-secondary"
-              onClick={() => window.close()}
-            >
-              关闭
-            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 主预览区域 */}
+      <div className="main-preview">
+        <div className="preview-container">
+          {isGenerating ? (
+            <div className="preview-loading">
+              <div className="loading-spinner"></div>
+              <span>生成分享卡片中...</span>
+            </div>
+          ) : previewImageSrc ? (
+            <img 
+              src={previewImageSrc} 
+              alt="Share Card Preview" 
+              className="preview-image"
+            />
+          ) : (
+            <div className="preview-placeholder">
+              <div className="placeholder-icon">🎨</div>
+              <div className="placeholder-text">选择模板和比例开始生成</div>
+            </div>
+          )}
+        </div>
+        
+        {/* 底部内容信息 */}
+        <div className="content-info">
+          <div className="content-preview">
+            {clipboardItem.type === 'image' && clipboardItem.preview ? (
+              <img src={clipboardItem.preview} alt="Content" className="content-thumbnail" />
+            ) : (
+              <div className="content-text">
+                {clipboardItem.content.length > 80 
+                  ? clipboardItem.content.substring(0, 80) + '...' 
+                  : clipboardItem.content}
+              </div>
+            )}
+          </div>
+          <div className="content-meta">
+            <span className="content-time">
+              {new Date(clipboardItem.timestamp).toLocaleString()}
+            </span>
+            {clipboardItem.size && (
+              <span className="content-size">{clipboardItem.size}</span>
+            )}
           </div>
         </div>
       </div>
