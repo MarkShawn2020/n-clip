@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
+import { Provider } from 'jotai'
 import ClipboardManager from './components/ClipboardManager'
 import './App.css'
 
 function App() {
   return (
-    <div className='App'>
-      <ClipboardManager />
-    </div>
+    <Provider>
+      <div className='App'>
+        <ClipboardManager />
+      </div>
+    </Provider>
   )
 }
 

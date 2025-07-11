@@ -36,9 +36,34 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
     ipcRenderer.on('clipboard:changed', (_, content) => callback(content))
   },
   
+  // 监听剪切板历史更新
+  onClipboardHistoryUpdate: (callback: (history: any[]) => void) => {
+    ipcRenderer.on('clipboard:history-updated', (_, history) => callback(history))
+  },
+  
   // 移除剪切板监听
   removeClipboardListener: () => {
     ipcRenderer.removeAllListeners('clipboard:changed')
+    ipcRenderer.removeAllListeners('clipboard:history-updated')
+  }
+})
+
+// --------- Expose window API ---------
+contextBridge.exposeInMainWorld('windowAPI', {
+  // 获取窗口边界
+  getBounds: () => ipcRenderer.invoke('window:get-bounds'),
+  
+  // 设置窗口边界
+  setBounds: (bounds: any) => ipcRenderer.invoke('window:set-bounds', bounds),
+  
+  // 监听窗口边界变化
+  onBoundsChanged: (callback: (bounds: any) => void) => {
+    ipcRenderer.on('window-bounds-changed', (_, bounds) => callback(bounds))
+  },
+  
+  // 移除窗口监听
+  removeWindowListener: () => {
+    ipcRenderer.removeAllListeners('window-bounds-changed')
   }
 })
 

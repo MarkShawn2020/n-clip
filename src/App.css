@@ -8,6 +8,7 @@
   padding: 20px;
   box-sizing: border-box;
   margin: 0;
+  -webkit-app-region: drag; /* 整个App可拖拽 */
 }
 
 #root {

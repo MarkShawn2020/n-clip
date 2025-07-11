@@ -55,12 +55,30 @@ interface ClipboardItem {
 
 let clipboardHistory: ClipboardItem[] = []
 let lastClipboardContent = ''
+let isSettingClipboard = false // 标记是否正在设置剪切板内容
+
+// 窗口位置存储
+interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+let windowBounds: WindowBounds = {
+  x: 0,
+  y: 0,
+  width: 640,
+  height: 480
+}
 
 async function createWindow() {
   win = new BrowserWindow({
     title: 'n-clip',
-    width: 640,
-    height: 480,
+    x: windowBounds.x,
+    y: windowBounds.y,
+    width: windowBounds.width,
+    height: windowBounds.height,
     minWidth: 600,
     minHeight: 400,
     frame: false,
@@ -90,6 +108,26 @@ async function createWindow() {
     win?.show()
   })
 
+  // 监听窗口位置变化
+  win.on('moved', () => {
+    if (win) {
+      const bounds = win.getBounds()
+      windowBounds = bounds
+      // 发送位置更新到渲染进程
+      win.webContents.send('window-bounds-changed', bounds)
+    }
+  })
+
+  // 监听窗口大小变化
+  win.on('resized', () => {
+    if (win) {
+      const bounds = win.getBounds()
+      windowBounds = bounds
+      // 发送位置更新到渲染进程
+      win.webContents.send('window-bounds-changed', bounds)
+    }
+  })
+
   // Test actively push message to the Electron-Renderer
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString())
@@ -113,8 +151,9 @@ async function createWindow() {
 
 // 注册全局快捷键
 function registerGlobalShortcuts() {
-  // 注册 Cmd/Ctrl + Shift + V 显示/隐藏窗口
-  globalShortcut.register('CommandOrControl+Shift+V', () => {
+  // 使用不同的快捷键避免与Alfred冲突
+  // 注册 Cmd/Ctrl + Shift + C 显示/隐藏窗口
+  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+C', () => {
     if (win) {
       if (win.isVisible()) {
         win.hide()
@@ -125,12 +164,25 @@ function registerGlobalShortcuts() {
     }
   })
   
-  // 注册 Esc 隐藏窗口
-  globalShortcut.register('Escape', () => {
-    if (win && win.isVisible()) {
-      win.hide()
+  if (!shortcutRegistered) {
+    console.warn('Failed to register global shortcut CommandOrControl+Shift+C')
+  }
+  
+  // 备用快捷键 Cmd/Ctrl + Option + C
+  const altShortcutRegistered = globalShortcut.register('CommandOrControl+Alt+C', () => {
+    if (win) {
+      if (win.isVisible()) {
+        win.hide()
+      } else {
+        win.show()
+        win.focus()
+      }
     }
   })
+  
+  if (!altShortcutRegistered) {
+    console.warn('Failed to register global shortcut CommandOrControl+Alt+C')
+  }
 }
 
 // 剪切板监听器
@@ -140,6 +192,11 @@ function startClipboardMonitor() {
   
   // 定时检查剪切板变化
   setInterval(() => {
+    // 如果正在设置剪切板内容，跳过这次检查
+    if (isSettingClipboard) {
+      return
+    }
+    
     const currentText = clipboard.readText()
     const currentImage = clipboard.readImage()
     
@@ -161,6 +218,42 @@ function startClipboardMonitor() {
       // 检查是否是新的图片（通过大小和时间戳判断）
       const lastItem = clipboardHistory[0]
       if (!lastItem || lastItem.type !== 'image' || lastItem.content !== newItem.content) {
+        // 检查是否已存在相同的图片内容
+        const existingItem = clipboardHistory.find(item => 
+          item.type === 'image' && item.content === newItem.content
+        )
+        
+        if (!existingItem) {
+          clipboardHistory.unshift(newItem)
+          
+          // 限制历史记录数量
+          if (clipboardHistory.length > 100) {
+            clipboardHistory = clipboardHistory.slice(0, 100)
+          }
+          
+          // 通知渲染进程
+          if (win) {
+            win.webContents.send('clipboard:changed', newItem)
+          }
+        }
+      }
+    }
+    // 检查文本
+    else if (currentText !== lastClipboardContent && currentText.trim()) {
+      // 检查是否已存在相同的文本内容
+      const existingItem = clipboardHistory.find(item => 
+        item.type === 'text' && item.content === currentText
+      )
+      
+      if (!existingItem) {
+        const newItem: ClipboardItem = {
+          id: Date.now().toString(),
+          type: 'text',
+          content: currentText,
+          timestamp: Date.now()
+        }
+        
+        // 添加到历史记录
         clipboardHistory.unshift(newItem)
         
         // 限制历史记录数量
@@ -168,34 +261,26 @@ function startClipboardMonitor() {
           clipboardHistory = clipboardHistory.slice(0, 100)
         }
         
+        lastClipboardContent = currentText
+        
         // 通知渲染进程
         if (win) {
           win.webContents.send('clipboard:changed', newItem)
         }
-      }
-    }
-    // 检查文本
-    else if (currentText !== lastClipboardContent && currentText.trim()) {
-      const newItem: ClipboardItem = {
-        id: Date.now().toString(),
-        type: 'text',
-        content: currentText,
-        timestamp: Date.now()
-      }
-      
-      // 添加到历史记录
-      clipboardHistory.unshift(newItem)
-      
-      // 限制历史记录数量
-      if (clipboardHistory.length > 100) {
-        clipboardHistory = clipboardHistory.slice(0, 100)
-      }
-      
-      lastClipboardContent = currentText
-      
-      // 通知渲染进程
-      if (win) {
-        win.webContents.send('clipboard:changed', newItem)
+      } else {
+        // 如果存在相同内容，将其移动到最前面
+        const index = clipboardHistory.indexOf(existingItem)
+        if (index > 0) {
+          clipboardHistory.splice(index, 1)
+          clipboardHistory.unshift(existingItem)
+          
+          // 通知渲染进程更新
+          if (win) {
+            win.webContents.send('clipboard:history-updated', clipboardHistory)
+          }
+        }
+        
+        lastClipboardContent = currentText
       }
     }
   }, 1000) // 每秒检查一次
@@ -237,6 +322,9 @@ ipcMain.handle('clipboard:get-history', () => {
 
 ipcMain.handle('clipboard:set-content', (_, item: ClipboardItem) => {
   try {
+    // 设置标记，避免触发剪切板监听器
+    isSettingClipboard = true
+    
     if (item.type === 'image' && item.preview) {
       // 处理图片 - 从 base64 转换回图片
       const base64Data = item.preview.replace(/^data:image\/\w+;base64,/, '')
@@ -246,12 +334,33 @@ ipcMain.handle('clipboard:set-content', (_, item: ClipboardItem) => {
     } else {
       // 处理文本
       clipboard.writeText(item.content)
+      lastClipboardContent = item.content
     }
+    
+    // 延迟重置标记，给剪切板一些时间更新
+    setTimeout(() => {
+      isSettingClipboard = false
+    }, 500)
+    
     return true
   } catch (error) {
     console.error('Failed to set clipboard content:', error)
+    isSettingClipboard = false
     return false
   }
+})
+
+// 窗口位置相关 IPC
+ipcMain.handle('window:get-bounds', () => {
+  return windowBounds
+})
+
+ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
+  windowBounds = bounds
+  if (win) {
+    win.setBounds(bounds)
+  }
+  return true
 })
 
 // New window example arg: new windows url

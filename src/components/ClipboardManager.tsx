@@ -1,11 +1,23 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { useAtom } from 'jotai'
 import { ClipboardItem } from '../types/electron'
+import { 
+  clipboardItemsAtom, 
+  searchQueryAtom, 
+  selectedIndexAtom, 
+  filteredItemsAtom,
+  windowPositionAtom,
+  resetSelectedIndexAtom
+} from '../store/atoms'
 import './ClipboardManager.css'
 
 export default function ClipboardManager() {
-  const [items, setItems] = useState<ClipboardItem[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [items, setItems] = useAtom(clipboardItemsAtom)
+  const [searchQuery, setSearchQuery] = useAtom(searchQueryAtom)
+  const [selectedIndex, setSelectedIndex] = useAtom(selectedIndexAtom)
+  const [filteredItems] = useAtom(filteredItemsAtom)
+  const [windowPosition, setWindowPosition] = useAtom(windowPositionAtom)
+  const [, resetSelectedIndex] = useAtom(resetSelectedIndexAtom)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // 加载剪切板历史
@@ -26,15 +38,43 @@ export default function ClipboardManager() {
       setItems(prev => [newItem, ...prev])
     })
     
+    // 监听剪切板历史更新
+    window.clipboardAPI.onClipboardHistoryUpdate((history: ClipboardItem[]) => {
+      setItems(history)
+    })
+    
     return () => {
       window.clipboardAPI.removeClipboardListener()
     }
-  }, [])
+  }, [setItems])
 
-  // 过滤项目
-  const filteredItems = items.filter(item =>
-    item.content.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // 初始化窗口位置
+  useEffect(() => {
+    const initWindowPosition = async () => {
+      try {
+        const bounds = await window.windowAPI.getBounds()
+        setWindowPosition(bounds)
+      } catch (error) {
+        console.error('Failed to load window position:', error)
+      }
+    }
+    
+    initWindowPosition()
+    
+    // 监听窗口位置变化
+    window.windowAPI.onBoundsChanged((bounds) => {
+      setWindowPosition(bounds)
+    })
+    
+    return () => {
+      window.windowAPI.removeWindowListener()
+    }
+  }, [setWindowPosition])
+
+  // 当搜索结果变化时重置选中索引
+  useEffect(() => {
+    resetSelectedIndex()
+  }, [filteredItems.length, resetSelectedIndex])
 
   // 键盘导航
   useEffect(() => {

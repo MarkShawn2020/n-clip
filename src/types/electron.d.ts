@@ -14,9 +14,24 @@ export interface ClipboardAPI {
   removeClipboardListener: () => void
 }
 
+export interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface WindowAPI {
+  getBounds: () => Promise<WindowBounds>
+  setBounds: (bounds: WindowBounds) => Promise<boolean>
+  onBoundsChanged: (callback: (bounds: WindowBounds) => void) => void
+  removeWindowListener: () => void
+}
+
 declare global {
   interface Window {
     clipboardAPI: ClipboardAPI
+    windowAPI: WindowAPI
     ipcRenderer: {
       on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
       off: (channel: string, ...args: any[]) => void
