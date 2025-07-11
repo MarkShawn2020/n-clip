@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import sqlite3 from 'sqlite3'
 import { update } from './update'
 
 const require = createRequire(import.meta.url)
@@ -75,6 +76,173 @@ let storageSettings: StorageSettings = { ...defaultStorageSettings }
 let clipboardHistory: ClipboardItem[] = []
 let lastClipboardContent = ''
 let isSettingClipboard = false // 标记是否正在设置剪切板内容
+
+// 数据库实例
+let db: sqlite3.Database | null = null
+
+// 初始化数据库
+async function initDatabase() {
+  return new Promise<void>((resolve, reject) => {
+    const dbPath = path.join(os.homedir(), '.nclip', 'clipboard.db')
+    
+    // 确保目录存在
+    const dbDir = path.dirname(dbPath)
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
+    }
+    
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('Failed to open database:', err)
+        reject(err)
+        return
+      }
+      
+      console.log('Database opened successfully')
+      
+      // 创建表
+      db!.run(`
+        CREATE TABLE IF NOT EXISTS clipboard_items (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          preview TEXT,
+          timestamp INTEGER NOT NULL,
+          size TEXT,
+          expiry_time INTEGER
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Failed to create table:', err)
+          reject(err)
+        } else {
+          console.log('Table created successfully')
+          resolve()
+        }
+      })
+    })
+  })
+}
+
+// 保存剪切板项目到数据库
+async function saveClipboardItem(item: ClipboardItem): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO clipboard_items 
+      (id, type, content, preview, timestamp, size, expiry_time) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    stmt.run([
+      item.id,
+      item.type,
+      item.content,
+      item.preview || null,
+      item.timestamp,
+      item.size || null,
+      item.expiryTime || null
+    ], (err) => {
+      if (err) {
+        console.error('Failed to save clipboard item:', err)
+        reject(err)
+      } else {
+        resolve()
+      }
+    })
+    
+    stmt.finalize()
+  })
+}
+
+// 从数据库加载剪切板历史
+async function loadClipboardHistory(): Promise<ClipboardItem[]> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    const now = Date.now()
+    
+    // 删除过期项目
+    db.run('DELETE FROM clipboard_items WHERE expiry_time IS NOT NULL AND expiry_time < ?', [now], (err) => {
+      if (err) {
+        console.error('Failed to delete expired items:', err)
+      }
+    })
+    
+    // 加载有效项目
+    db.all(`
+      SELECT * FROM clipboard_items 
+      WHERE expiry_time IS NULL OR expiry_time > ?
+      ORDER BY timestamp DESC
+      LIMIT 1000
+    `, [now], (err, rows: any[]) => {
+      if (err) {
+        console.error('Failed to load clipboard history:', err)
+        reject(err)
+        return
+      }
+      
+      const items: ClipboardItem[] = rows.map(row => ({
+        id: row.id,
+        type: row.type,
+        content: row.content,
+        preview: row.preview,
+        timestamp: row.timestamp,
+        size: row.size,
+        expiryTime: row.expiry_time
+      }))
+      
+      resolve(items)
+    })
+  })
+}
+
+// 从数据库删除剪切板项目
+async function deleteClipboardItem(itemId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    db.run('DELETE FROM clipboard_items WHERE id = ?', [itemId], (err) => {
+      if (err) {
+        console.error('Failed to delete clipboard item:', err)
+        reject(err)
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+// 清理过期项目
+async function cleanupExpiredItems(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    const now = Date.now()
+    
+    db.run('DELETE FROM clipboard_items WHERE expiry_time IS NOT NULL AND expiry_time < ?', [now], function(err) {
+      if (err) {
+        console.error('Failed to cleanup expired items:', err)
+        reject(err)
+      } else {
+        resolve(this.changes || 0)
+      }
+    })
+  })
+}
 
 // 窗口位置存储
 interface WindowBounds {
@@ -175,11 +343,17 @@ async function createWindow() {
   // 创建系统托盘
   createTray()
   
-  // 启动定期清理过期项目
-  startExpiryCleanup()
+  // 初始化数据库
+  await initDatabase()
   
   // 加载存储设置
   loadStorageSettings()
+  
+  // 从数据库加载剪切板历史
+  await loadClipboardHistoryFromDB()
+  
+  // 启动定期清理过期项目
+  startExpiryCleanup()
 }
 
 // 注册全局快捷键
@@ -336,6 +510,9 @@ function startClipboardMonitor() {
         if (!existingItem) {
           clipboardHistory.unshift(newItem)
           
+          // 保存到数据库
+          saveClipboardItem(newItem).catch(console.error)
+          
           // 限制历史记录数量
           if (clipboardHistory.length > 100) {
             clipboardHistory = clipboardHistory.slice(0, 100)
@@ -367,6 +544,9 @@ function startClipboardMonitor() {
         // 添加到历史记录
         clipboardHistory.unshift(newItem)
         
+        // 保存到数据库
+        saveClipboardItem(newItem).catch(console.error)
+        
         // 限制历史记录数量
         if (clipboardHistory.length > 100) {
           clipboardHistory = clipboardHistory.slice(0, 100)
@@ -397,28 +577,36 @@ function startClipboardMonitor() {
   }, 1000) // 每秒检查一次
 }
 
+// 从数据库加载剪切板历史
+async function loadClipboardHistoryFromDB() {
+  try {
+    clipboardHistory = await loadClipboardHistory()
+    console.log(`Loaded ${clipboardHistory.length} clipboard items from database`)
+  } catch (error) {
+    console.error('Failed to load clipboard history from database:', error)
+  }
+}
+
 // 启动过期清理
 function startExpiryCleanup() {
   // 每小时清理一次过期项目
-  setInterval(() => {
-    const now = Date.now()
-    const initialLength = clipboardHistory.length
-    
-    clipboardHistory = clipboardHistory.filter(item => {
-      // 如果没有过期时间，保留项目
-      if (!item.expiryTime) return true
+  setInterval(async () => {
+    try {
+      const removedCount = await cleanupExpiredItems()
       
-      // 检查是否过期
-      return item.expiryTime > now
-    })
-    
-    // 如果有项目被清理，通知渲染进程
-    if (clipboardHistory.length < initialLength) {
-      console.log(`Cleaned up ${initialLength - clipboardHistory.length} expired items`)
-      
-      if (win) {
-        win.webContents.send('clipboard:history-updated', clipboardHistory)
+      if (removedCount > 0) {
+        console.log(`Cleaned up ${removedCount} expired items from database`)
+        
+        // 重新加载剪切板历史
+        await loadClipboardHistoryFromDB()
+        
+        // 通知渲染进程
+        if (win) {
+          win.webContents.send('clipboard:history-updated', clipboardHistory)
+        }
       }
+    } catch (error) {
+      console.error('Failed to cleanup expired items:', error)
     }
   }, 60 * 60 * 1000) // 每小时执行一次
 }
@@ -439,6 +627,17 @@ app.on('will-quit', () => {
   if (tray) {
     tray.destroy()
     tray = null
+  }
+  
+  // 关闭数据库连接
+  if (db) {
+    db.close((err) => {
+      if (err) {
+        console.error('Failed to close database:', err)
+      } else {
+        console.log('Database connection closed')
+      }
+    })
   }
 })
 
@@ -597,6 +796,9 @@ ipcMain.handle('clipboard:delete-item', async (_, itemId: string) => {
     const index = clipboardHistory.findIndex(item => item.id === itemId)
     if (index !== -1) {
       clipboardHistory.splice(index, 1)
+      
+      // 从数据库删除
+      await deleteClipboardItem(itemId)
       
       // 通知渲染进程更新
       if (win) {
@@ -829,22 +1031,25 @@ ipcMain.handle('storage:set-settings', (_, settings: StorageSettings) => {
 })
 
 // 手动清理过期项目
-ipcMain.handle('storage:cleanup-expired', () => {
-  const now = Date.now()
-  const initialLength = clipboardHistory.length
-  
-  clipboardHistory = clipboardHistory.filter(item => {
-    if (!item.expiryTime) return true
-    return item.expiryTime > now
-  })
-  
-  const removedCount = initialLength - clipboardHistory.length
-  
-  if (removedCount > 0 && win) {
-    win.webContents.send('clipboard:history-updated', clipboardHistory)
+ipcMain.handle('storage:cleanup-expired', async () => {
+  try {
+    const removedCount = await cleanupExpiredItems()
+    
+    if (removedCount > 0) {
+      // 重新加载剪切板历史
+      await loadClipboardHistoryFromDB()
+      
+      // 通知渲染进程
+      if (win) {
+        win.webContents.send('clipboard:history-updated', clipboardHistory)
+      }
+    }
+    
+    return removedCount
+  } catch (error) {
+    console.error('Failed to cleanup expired items:', error)
+    return 0
   }
-  
-  return removedCount
 })
 
 // 启动时加载存储设置
