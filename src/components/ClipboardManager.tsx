@@ -195,6 +195,29 @@ export default function ClipboardManager() {
     }
   }
 
+  // 切换固定状态
+  const handleTogglePin = async (item: ClipboardItem) => {
+    try {
+      const result = await window.clipboardAPI.togglePin(item.id)
+      if (result.success) {
+        // 更新本地状态
+        setItems(prev => prev.map(i => 
+          i.id === item.id ? { ...i, isPinned: result.isPinned } : i
+        ).sort((a, b) => {
+          // 重新排序：固定项目在前
+          if (a.isPinned && !b.isPinned) return -1
+          if (!a.isPinned && b.isPinned) return 1
+          return b.timestamp - a.timestamp
+        }))
+      } else if (result.error) {
+        console.warn('Pin toggle failed:', result.error)
+        // 可以在这里显示错误提示
+      }
+    } catch (error) {
+      console.error('Failed to toggle pin:', error)
+    }
+  }
+
   // 打开分享卡片窗口
   const handleShareCard = async (item: ClipboardItem) => {
     try {
@@ -264,7 +287,7 @@ export default function ClipboardManager() {
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
-                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''}`}
+                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isPinned ? 'pinned' : ''}`}
                 onClick={() => handleItemSelect(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
                 onContextMenu={(e) => handleContextMenu(e, item)}
@@ -290,8 +313,13 @@ export default function ClipboardManager() {
                     <div className="item-size">{item.size}</div>
                   )}
                 </div>
-                <div className="item-shortcut">
-                  {getShortcutKey(index)}
+                <div className="item-meta">
+                  {item.isPinned && (
+                    <div className="item-pin-indicator">📌</div>
+                  )}
+                  <div className="item-shortcut">
+                    {getShortcutKey(index)}
+                  </div>
                 </div>
               </div>
             ))}
@@ -317,6 +345,13 @@ export default function ClipboardManager() {
                 
                 
                 <div className="preview-actions">
+                  <button 
+                    className="action-btn pin-btn"
+                    onClick={() => handleTogglePin(selectedItem)}
+                    title={selectedItem.isPinned ? "取消固定" : "固定项目"}
+                  >
+                    {selectedItem.isPinned ? '📌' : '📍'}
+                  </button>
                   <button 
                     className="action-btn share-btn"
                     onClick={() => handleShareCard(selectedItem)}

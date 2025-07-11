@@ -50,6 +50,9 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   // 删除项目
   deleteItem: (itemId: string) => ipcRenderer.invoke('clipboard:delete-item', itemId),
   
+  // 切换固定状态
+  togglePin: (itemId: string) => ipcRenderer.invoke('clipboard:toggle-pin', itemId),
+  
   // 生成分享卡片
   generateShareCard: (item: any, template?: string, ratio?: string) => ipcRenderer.invoke('clipboard:generate-share-card', item, template, ratio),
   

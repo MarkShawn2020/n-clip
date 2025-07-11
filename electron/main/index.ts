@@ -56,6 +56,7 @@ interface ClipboardItem {
   timestamp: number
   size?: string
   expiryTime?: number // 过期时间戳
+  isPinned?: boolean // 是否固定
 }
 
 // 存储有效期设置（毫秒）
@@ -110,7 +111,8 @@ async function initDatabase() {
           preview TEXT,
           timestamp INTEGER NOT NULL,
           size TEXT,
-          expiry_time INTEGER
+          expiry_time INTEGER,
+          is_pinned INTEGER DEFAULT 0
         )
       `, (err) => {
         if (err) {
@@ -118,7 +120,18 @@ async function initDatabase() {
           reject(err)
         } else {
           console.log('Table created successfully')
-          resolve()
+          
+          // 检查并添加is_pinned列（用于数据库迁移）
+          db!.run(`
+            ALTER TABLE clipboard_items ADD COLUMN is_pinned INTEGER DEFAULT 0
+          `, (alterErr) => {
+            if (alterErr && !alterErr.message.includes('duplicate column name')) {
+              console.error('Failed to add is_pinned column:', alterErr)
+            } else {
+              console.log('Database migration completed')
+            }
+            resolve()
+          })
         }
       })
     })
@@ -135,8 +148,8 @@ async function saveClipboardItem(item: ClipboardItem): Promise<void> {
     
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO clipboard_items 
-      (id, type, content, preview, timestamp, size, expiry_time) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (id, type, content, preview, timestamp, size, expiry_time, is_pinned) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
     
     stmt.run([
@@ -146,7 +159,8 @@ async function saveClipboardItem(item: ClipboardItem): Promise<void> {
       item.preview || null,
       item.timestamp,
       item.size || null,
-      item.expiryTime || null
+      item.expiryTime || null,
+      item.isPinned ? 1 : 0
     ], (err) => {
       if (err) {
         console.error('Failed to save clipboard item:', err)
@@ -177,11 +191,11 @@ async function loadClipboardHistory(): Promise<ClipboardItem[]> {
       }
     })
     
-    // 加载有效项目
+    // 加载有效项目，固定项目排在前面
     db.all(`
       SELECT * FROM clipboard_items 
       WHERE expiry_time IS NULL OR expiry_time > ?
-      ORDER BY timestamp DESC
+      ORDER BY is_pinned DESC, timestamp DESC
       LIMIT 1000
     `, [now], (err, rows: any[]) => {
       if (err) {
@@ -197,7 +211,8 @@ async function loadClipboardHistory(): Promise<ClipboardItem[]> {
         preview: row.preview,
         timestamp: row.timestamp,
         size: row.size,
-        expiryTime: row.expiry_time
+        expiryTime: row.expiry_time,
+        isPinned: row.is_pinned === 1
       }))
       
       resolve(items)
@@ -918,15 +933,59 @@ ipcMain.handle('clipboard:delete-item', async (_, itemId: string) => {
   }
 })
 
+// 切换项目固定状态
+ipcMain.handle('clipboard:toggle-pin', async (_, itemId: string) => {
+  try {
+    const item = clipboardHistory.find(item => item.id === itemId)
+    if (!item) return false
+    
+    const newPinState = !item.isPinned
+    
+    // 如果要固定项目，检查固定数量限制
+    if (newPinState) {
+      const pinnedCount = clipboardHistory.filter(item => item.isPinned).length
+      if (pinnedCount >= 3) {
+        return { success: false, error: '最多只能固定3个项目' }
+      }
+    }
+    
+    // 更新内存中的状态
+    item.isPinned = newPinState
+    
+    // 更新数据库
+    await saveClipboardItem(item)
+    
+    // 重新排序：固定项目排在前面
+    clipboardHistory.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      return b.timestamp - a.timestamp
+    })
+    
+    // 通知渲染进程更新
+    if (win) {
+      win.webContents.send('clipboard:history-updated', clipboardHistory)
+    }
+    
+    return { success: true, isPinned: newPinState }
+  } catch (error) {
+    console.error('Failed to toggle pin:', error)
+    return { success: false, error: '操作失败' }
+  }
+})
+
 // 生成分享卡片
 ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem, template: string = 'default', ratio: string = '3:4') => {
   try {
     console.log('Generate share card request for item:', item.type, item.id)
     
+    // 计算项目序号
+    const itemIndex = clipboardHistory.findIndex(h => h.id === item.id) + 1
+    
     if (item.type === 'image' && item.preview) {
       console.log('Processing image share card...')
       // 为图片生成分享卡片
-      const tempPath = await generateImageShareCard(item, template, ratio)
+      const tempPath = await generateImageShareCard(item, template, ratio, itemIndex)
       if (tempPath) {
         // 将生成的卡片复制到剪切板
         const cardImage = nativeImage.createFromPath(tempPath)
@@ -949,7 +1008,7 @@ ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem, t
     } else if (item.type === 'text') {
       console.log('Processing text share card...')
       // 为文本生成分享卡片
-      const tempPath = await generateTextShareCard(item, template, ratio)
+      const tempPath = await generateTextShareCard(item, template, ratio, itemIndex)
       if (tempPath) {
         const cardImage = nativeImage.createFromPath(tempPath)
         clipboard.writeImage(cardImage)
@@ -1005,12 +1064,15 @@ ipcMain.handle('clipboard:generate-share-card-preview', async (_, item: Clipboar
   try {
     console.log('Generate share card preview request for item:', item.type, item.id, 'template:', template, 'ratio:', ratio)
     
+    // 计算项目序号
+    const itemIndex = clipboardHistory.findIndex(h => h.id === item.id) + 1
+    
     let tempPath: string | null = null
     
     if (item.type === 'image' && item.preview) {
-      tempPath = await generateImageShareCard(item, template, ratio)
+      tempPath = await generateImageShareCard(item, template, ratio, itemIndex)
     } else if (item.type === 'text') {
-      tempPath = await generateTextShareCard(item, template, ratio)
+      tempPath = await generateTextShareCard(item, template, ratio, itemIndex)
     }
     
     if (tempPath) {
@@ -1036,7 +1098,7 @@ ipcMain.handle('clipboard:generate-share-card-preview', async (_, item: Clipboar
 })
 
 // 生成图片分享卡片
-async function generateImageShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4'): Promise<string | null> {
+async function generateImageShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4', itemIndex: number = 0): Promise<string | null> {
   try {
     console.log('Starting image share card generation...')
     const { createCanvas, loadImage } = require('canvas')
@@ -1044,33 +1106,36 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
     // 计算画布尺寸
     let width: number, height: number
     if (ratio === 'auto') {
-      // 自适应：根据原图比例计算合适的画布尺寸
+      // 自适应：紧贴内容尺寸
       const base64Data = item.preview!.replace(/^data:image\/\w+;base64,/, '')
       const imageBuffer = Buffer.from(base64Data, 'base64')
       const tempImage = await loadImage(imageBuffer)
-      const aspectRatio = tempImage.width / tempImage.height
       
-      if (aspectRatio > 1) {
-        // 横向图片
-        width = 800
-        height = Math.round(800 / aspectRatio)
-        // 确保最小高度
-        if (height < 500) {
-          height = 500
-          width = Math.round(500 * aspectRatio)
-        }
-      } else {
-        // 竖向或方形图片
-        height = 800
-        width = Math.round(800 * aspectRatio)
-        // 确保最小宽度
-        if (width < 500) {
-          width = 500
-          height = Math.round(500 / aspectRatio)
-        }
+      // 计算最优显示尺寸
+      const maxSize = 800
+      const minSize = 400
+      let targetWidth = tempImage.width
+      let targetHeight = tempImage.height
+      
+      // 如果图片太大，等比缩放
+      if (targetWidth > maxSize || targetHeight > maxSize) {
+        const scale = maxSize / Math.max(targetWidth, targetHeight)
+        targetWidth = Math.round(targetWidth * scale)
+        targetHeight = Math.round(targetHeight * scale)
       }
-      // 为品牌信息留出空间
-      height += 120
+      
+      // 确保最小尺寸
+      if (targetWidth < minSize || targetHeight < minSize) {
+        const scale = minSize / Math.min(targetWidth, targetHeight)
+        targetWidth = Math.round(targetWidth * scale)
+        targetHeight = Math.round(targetHeight * scale)
+      }
+      
+      // 画布尺寸 = 图片尺寸 + 最小必要边距
+      const padding = 20 // 极简边距
+      const brandSpace = 80 // 精简品牌区域
+      width = targetWidth + (padding * 2)
+      height = targetHeight + brandSpace + padding
     } else if (ratio === '4:3') {
       width = 800
       height = 600
@@ -1082,54 +1147,240 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
       height = 800
     }
     
-    // 创建画布
-    const canvas = createCanvas(width, height)
+    // 创建高清画布
+    const dpr = 2 // 设备像素比，提高清晰度
+    const canvas = createCanvas(width * dpr, height * dpr)
     const ctx = canvas.getContext('2d')
     
-    // 背景渐变
+    // 缩放上下文以适应高DPI
+    ctx.scale(dpr, dpr)
+    
+    // 启用抗锯齿
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    
+    // 背景渐变 - 精心设计的高级配色
     const gradient = ctx.createLinearGradient(0, 0, width, height)
-    if (template === 'dark') {
-      gradient.addColorStop(0, '#1a1a1a')
-      gradient.addColorStop(1, '#2d2d2d')
-    } else if (template === 'pastel') {
-      gradient.addColorStop(0, '#ffeaa7')
-      gradient.addColorStop(1, '#fab1a0')
-    } else {
-      gradient.addColorStop(0, '#667eea')
-      gradient.addColorStop(1, '#764ba2')
+    
+    switch (template) {
+      case 'ultrathin':
+        // 极薄：纯净白色背景，极简至上
+        ctx.fillStyle = '#fafafa'
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'dark':
+        // 暗夜：深邃渐变
+        gradient.addColorStop(0, '#0f0f23')
+        gradient.addColorStop(1, '#1a1a2e')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'pastel':
+        // 柔和：温暖渐变
+        gradient.addColorStop(0, '#ffeaa7')
+        gradient.addColorStop(1, '#fab1a0')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'luxury':
+        // 奢华金：金色渐变
+        gradient.addColorStop(0, '#f7971e')
+        gradient.addColorStop(0.5, '#ffd200')
+        gradient.addColorStop(1, '#ffb347')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'monochrome':
+        // 黑白：经典渐变
+        gradient.addColorStop(0, '#2c3e50')
+        gradient.addColorStop(1, '#34495e')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'sunset':
+        // 日落：温暖渐变
+        gradient.addColorStop(0, '#ff6b6b')
+        gradient.addColorStop(0.5, '#feca57')
+        gradient.addColorStop(1, '#ff9ff3')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      default:
+        // 经典蓝：原版设计
+        gradient.addColorStop(0, '#667eea')
+        gradient.addColorStop(1, '#764ba2')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
     }
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
     
     // 添加图片
     const base64Data = item.preview!.replace(/^data:image\/\w+;base64,/, '')
     const imageBuffer = Buffer.from(base64Data, 'base64')
     const image = await loadImage(imageBuffer)
     
-    // 计算图片位置和大小
-    const maxWidth = width - 100
-    const maxHeight = height - 200
-    const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
-    const imageWidth = image.width * scale
-    const imageHeight = image.height * scale
-    const x = (width - imageWidth) / 2
-    const y = (height - imageHeight) / 2 - 50
+    // 计算图片位置和大小 - 自适应紧贴优化
+    let imageWidth: number, imageHeight: number, x: number, y: number
+    
+    if (ratio === 'auto') {
+      // 自适应模式：图片占据最大可用空间
+      const padding = 20
+      const brandSpace = 80
+      const availableWidth = width - (padding * 2)
+      const availableHeight = height - brandSpace - padding
+      
+      const scale = Math.min(availableWidth / image.width, availableHeight / image.height)
+      imageWidth = image.width * scale
+      imageHeight = image.height * scale
+      x = (width - imageWidth) / 2
+      y = padding
+    } else {
+      // 固定比例模式：保持原有逻辑
+      const maxWidth = width - 100
+      const maxHeight = height - 200
+      const scale = Math.min(maxWidth / image.width, maxHeight / image.height)
+      imageWidth = image.width * scale
+      imageHeight = image.height * scale
+      x = (width - imageWidth) / 2
+      y = (height - imageHeight) / 2 - 50
+    }
     
     // 绘制图片
     ctx.drawImage(image, x, y, imageWidth, imageHeight)
+    
+    // 添加高级感装饰元素
+    addPremiumDecorations(ctx, width, height, template)
+    
+    // 高级感序号设计
+    if (itemIndex > 0) {
+      const fontSize = Math.max(10, Math.min(12, width * 0.016))
+      
+      // 序号位置和样式
+      const numberX = width - 30
+      const numberY = 30
+      
+      // 根据模板设计不同风格的序号
+      switch (template) {
+        case 'ultrathin':
+          // 极简风：纯文字
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'
+          ctx.font = `300 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${String(itemIndex).padStart(2, '0')}`, numberX, numberY)
+          break
+          
+        case 'luxury':
+          // 奢华风：金色圆环
+          ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(numberX, numberY, 15, 0, Math.PI * 2)
+          ctx.stroke()
+          
+          ctx.fillStyle = 'rgba(139, 69, 19, 0.8)'
+          ctx.font = `600 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${itemIndex}`, numberX, numberY)
+          break
+          
+        default:
+          // 现代风：半透明背景
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+          ctx.beginPath()
+          ctx.arc(numberX, numberY, 12, 0, Math.PI * 2)
+          ctx.fill()
+          
+          const textColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.7)'
+          ctx.fillStyle = textColor
+          ctx.font = `500 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${String(itemIndex).padStart(2, '0')}`, numberX, numberY)
+          break
+      }
+    }
     
     // 添加 NClip 品牌 - 根据画布尺寸动态调整字体大小
     const brandFontSize = Math.max(20, Math.min(32, width * 0.045)) // 根据宽度调整，范围 20-32px
     const taglineFontSize = Math.max(12, Math.min(20, width * 0.028)) // 根据宽度调整，范围 12-20px
     
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = `bold ${brandFontSize}px Arial`
-    ctx.textAlign = 'center'
-    ctx.fillText('NClip', width / 2, height - 80)
+    // 根据模板调整品牌颜色
+    let brandColor = 'rgba(255, 255, 255, 0.9)'
+    let taglineColor = 'rgba(255, 255, 255, 0.7)'
     
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
-    ctx.font = `${taglineFontSize}px Arial`
-    ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
+    switch (template) {
+      case 'ultrathin':
+        brandColor = 'rgba(0, 0, 0, 0.9)'
+        taglineColor = 'rgba(0, 0, 0, 0.6)'
+        break
+      case 'dark':
+        brandColor = 'rgba(255, 255, 255, 0.9)'
+        taglineColor = 'rgba(255, 255, 255, 0.7)'
+        break
+      case 'pastel':
+        brandColor = 'rgba(0, 0, 0, 0.8)'
+        taglineColor = 'rgba(0, 0, 0, 0.6)'
+        break
+      case 'luxury':
+        brandColor = 'rgba(139, 69, 19, 0.9)' // 深棕色
+        taglineColor = 'rgba(139, 69, 19, 0.7)'
+        break
+      case 'monochrome':
+        brandColor = 'rgba(255, 255, 255, 0.95)'
+        taglineColor = 'rgba(255, 255, 255, 0.8)'
+        break
+      case 'sunset':
+        brandColor = 'rgba(255, 255, 255, 0.95)'
+        taglineColor = 'rgba(255, 255, 255, 0.8)'
+        break
+    }
+    
+    // 高级感品牌设计
+    const brandY = height - 65
+    const taglineY = height - 40
+    
+    // 品牌名称
+    ctx.fillStyle = brandColor
+    ctx.font = `700 ${brandFontSize}px SF Pro Display, -apple-system, system-ui`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.letterSpacing = '0.5px'
+    ctx.fillText('NClip', width / 2, brandY)
+    
+    // 添加品牌装饰
+    if (template === 'luxury') {
+      // 奢华模板：金色装饰线
+      const lineWidth = ctx.measureText('NClip').width
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(width / 2 - lineWidth / 2 - 10, brandY + 8)
+      ctx.lineTo(width / 2 + lineWidth / 2 + 10, brandY + 8)
+      ctx.stroke()
+    } else if (template === 'ultrathin') {
+      // 极简模板：细线装饰
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.lineWidth = 0.5
+      ctx.beginPath()
+      ctx.moveTo(width / 2 - 20, brandY + 6)
+      ctx.lineTo(width / 2 + 20, brandY + 6)
+      ctx.stroke()
+    }
+    
+    // 标语
+    ctx.fillStyle = taglineColor
+    ctx.font = `400 ${taglineFontSize}px SF Pro Display, -apple-system, system-ui`
+    ctx.textBaseline = 'alphabetic'
+    ctx.letterSpacing = '0.3px'
+    ctx.fillText('Copy. Paste. Repeat.', width / 2, taglineY)
     
     // 保存为PNG
     const tempDir = os.tmpdir()
@@ -1149,7 +1400,7 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
 }
 
 // 生成文本分享卡片
-async function generateTextShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4'): Promise<string | null> {
+async function generateTextShareCard(item: ClipboardItem, template: string = 'default', ratio: string = '3:4', itemIndex: number = 0): Promise<string | null> {
   try {
     console.log('Starting text share card generation...')
     const { createCanvas } = require('canvas')
@@ -1157,21 +1408,25 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
     // 计算画布尺寸
     let width: number, height: number
     if (ratio === 'auto') {
-      // 自适应：根据文本长度计算合适的画布尺寸
-      const textLength = item.content.length
-      if (textLength < 100) {
-        // 短文本，偏向方形
-        width = 600
-        height = 600
-      } else if (textLength < 300) {
-        // 中等文本，偏向竖向
-        width = 600
-        height = 800
-      } else {
-        // 长文本，使用更高的画布
-        width = 700
-        height = 900
-      }
+      // 自适应：根据文本内容紧贴计算尺寸
+      const fontSize = 20
+      const lineHeight = 32
+      const padding = 40
+      const brandSpace = 80
+      
+      // 创建临时画布测量文本
+      const tempCanvas = createCanvas(1000, 1000)
+      const tempCtx = tempCanvas.getContext('2d')
+      tempCtx.font = `${fontSize}px SF Pro Display, -apple-system, system-ui`
+      
+      // 计算文本行数和最大宽度
+      const lines = wrapText(tempCtx, item.content, 600) // 最大行宽600
+      const textHeight = lines.length * lineHeight
+      const maxLineWidth = Math.max(...lines.map(line => tempCtx.measureText(line).width))
+      
+      // 画布尺寸紧贴文本
+      width = Math.max(400, Math.min(800, maxLineWidth + padding * 2))
+      height = textHeight + brandSpace + padding * 2
     } else if (ratio === '4:3') {
       width = 800
       height = 600
@@ -1183,74 +1438,295 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
       height = 800
     }
     
-    // 创建画布
-    const canvas = createCanvas(width, height)
+    // 创建高清画布
+    const dpr = 2 // 设备像素比，提高清晰度
+    const canvas = createCanvas(width * dpr, height * dpr)
     const ctx = canvas.getContext('2d')
     
-    // 背景渐变
+    // 缩放上下文以适应高DPI
+    ctx.scale(dpr, dpr)
+    
+    // 启用抗锯齿
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    
+    // 背景渐变 - 精心设计的高级配色
     const gradient = ctx.createLinearGradient(0, 0, width, height)
-    if (template === 'dark') {
-      gradient.addColorStop(0, '#1a1a1a')
-      gradient.addColorStop(1, '#2d2d2d')
-    } else if (template === 'pastel') {
-      gradient.addColorStop(0, '#ffeaa7')
-      gradient.addColorStop(1, '#fab1a0')
-    } else {
-      gradient.addColorStop(0, '#667eea')
-      gradient.addColorStop(1, '#764ba2')
+    
+    switch (template) {
+      case 'ultrathin':
+        // 极薄：纯净白色背景，极简至上
+        ctx.fillStyle = '#fafafa'
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'dark':
+        // 暗夜：深邃渐变
+        gradient.addColorStop(0, '#0f0f23')
+        gradient.addColorStop(1, '#1a1a2e')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'pastel':
+        // 柔和：温暖渐变
+        gradient.addColorStop(0, '#ffeaa7')
+        gradient.addColorStop(1, '#fab1a0')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'luxury':
+        // 奢华金：金色渐变
+        gradient.addColorStop(0, '#f7971e')
+        gradient.addColorStop(0.5, '#ffd200')
+        gradient.addColorStop(1, '#ffb347')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'monochrome':
+        // 黑白：经典渐变
+        gradient.addColorStop(0, '#2c3e50')
+        gradient.addColorStop(1, '#34495e')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      case 'sunset':
+        // 日落：温暖渐变
+        gradient.addColorStop(0, '#ff6b6b')
+        gradient.addColorStop(0.5, '#feca57')
+        gradient.addColorStop(1, '#ff9ff3')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
+        
+      default:
+        // 经典蓝：原版设计
+        gradient.addColorStop(0, '#667eea')
+        gradient.addColorStop(1, '#764ba2')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, width, height)
+        break
     }
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
     
-    // 设置文本颜色
-    const textColor = template === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 
-                      template === 'pastel' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)'
+    // 添加高级感装饰元素
+    addPremiumDecorations(ctx, width, height, template)
     
-    // 添加文本内容
+    // 设置文本颜色 - 适配新模板
+    let textColor = 'rgba(255, 255, 255, 0.9)'
+    
+    switch (template) {
+      case 'ultrathin':
+        textColor = 'rgba(0, 0, 0, 0.9)'
+        break
+      case 'dark':
+        textColor = 'rgba(255, 255, 255, 0.9)'
+        break
+      case 'pastel':
+        textColor = 'rgba(0, 0, 0, 0.8)'
+        break
+      case 'luxury':
+        textColor = 'rgba(139, 69, 19, 0.9)' // 深棕色
+        break
+      case 'monochrome':
+        textColor = 'rgba(255, 255, 255, 0.95)'
+        break
+      case 'sunset':
+        textColor = 'rgba(255, 255, 255, 0.95)'
+        break
+      default:
+        textColor = 'rgba(255, 255, 255, 0.9)'
+        break
+    }
+    
+    // 添加文本内容 - 高质量渲染
     ctx.fillStyle = textColor
-    ctx.font = '20px Arial'
+    ctx.font = '20px SF Pro Display, -apple-system, system-ui'
     ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
     
-    // 分割文本为多行，考虑画布高度
-    const maxWidth = width - 80
-    const maxContentHeight = height - 200 // 留出品牌区域
-    const lines = wrapText(ctx, item.content, maxWidth)
-    const lineHeight = 32
-    const totalTextHeight = lines.length * lineHeight
-    
-    // 如果文本太长，减少行数并添加省略号
-    let displayLines = lines
-    if (totalTextHeight > maxContentHeight) {
-      const maxLines = Math.floor(maxContentHeight / lineHeight) - 1
-      displayLines = lines.slice(0, maxLines)
-      if (displayLines.length > 0) {
-        displayLines[displayLines.length - 1] = displayLines[displayLines.length - 1] + '...'
-      }
+    // 启用文本抗锯齿和子像素渲染
+    if (ctx.textRenderingOptimization) {
+      ctx.textRenderingOptimization = 'optimizeLegibility'
     }
     
-    // 计算起始Y位置，垂直居中
-    const actualTextHeight = displayLines.length * lineHeight
-    const startY = (height - actualTextHeight) / 2 - 50
+    // 分割文本为多行 - 自适应优化
+    const lineHeight = 32
+    let maxWidth: number, maxContentHeight: number, lines: string[], displayLines: string[], startY: number
+    
+    if (ratio === 'auto') {
+      // 自适应模式：文字位于视觉重心
+      const padding = 40
+      const brandSpace = 80
+      maxWidth = width - padding * 2
+      lines = wrapText(ctx, item.content, 600)
+      displayLines = lines
+      
+      // 计算文字总高度
+      const textHeight = displayLines.length * lineHeight
+      const availableHeight = height - brandSpace
+      
+      // 黄金比例布局：文字重心位于上1/3处
+      const goldenRatio = 0.618
+      const topSpace = (availableHeight - textHeight) * goldenRatio
+      startY = Math.max(padding, topSpace)
+      
+    } else {
+      // 固定比例模式：优化文字位置
+      maxWidth = width - 80
+      maxContentHeight = height - 160 // 减少品牌区域占用
+      lines = wrapText(ctx, item.content, maxWidth)
+      const totalTextHeight = lines.length * lineHeight
+      
+      // 如果文本太长，减少行数并添加省略号
+      displayLines = lines
+      if (totalTextHeight > maxContentHeight) {
+        const maxLines = Math.floor(maxContentHeight / lineHeight) - 1
+        displayLines = lines.slice(0, maxLines)
+        if (displayLines.length > 0) {
+          displayLines[displayLines.length - 1] = displayLines[displayLines.length - 1] + '...'
+        }
+      }
+      
+      // 文字位于视觉重心：上1/3处
+      const actualTextHeight = displayLines.length * lineHeight
+      const availableHeight = height - 160
+      const goldenRatio = 0.618
+      const topSpace = (availableHeight - actualTextHeight) * goldenRatio
+      startY = Math.max(60, topSpace + 40)
+    }
     
     // 绘制文本
     displayLines.forEach((line, index) => {
       ctx.fillText(line, width / 2, startY + index * lineHeight)
     })
     
+    // 高级感序号设计
+    if (itemIndex > 0) {
+      const fontSize = Math.max(10, Math.min(12, width * 0.016))
+      
+      // 序号位置和样式
+      const numberX = width - 30
+      const numberY = 30
+      
+      // 根据模板设计不同风格的序号
+      switch (template) {
+        case 'ultrathin':
+          // 极简风：纯文字
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.25)'
+          ctx.font = `300 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${String(itemIndex).padStart(2, '0')}`, numberX, numberY)
+          break
+          
+        case 'luxury':
+          // 奢华风：金色圆环
+          ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(numberX, numberY, 15, 0, Math.PI * 2)
+          ctx.stroke()
+          
+          ctx.fillStyle = 'rgba(139, 69, 19, 0.8)'
+          ctx.font = `600 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${itemIndex}`, numberX, numberY)
+          break
+          
+        default:
+          // 现代风：半透明背景
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+          ctx.beginPath()
+          ctx.arc(numberX, numberY, 12, 0, Math.PI * 2)
+          ctx.fill()
+          
+          const textColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.7)'
+          ctx.fillStyle = textColor
+          ctx.font = `500 ${fontSize}px SF Pro Display, -apple-system, system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${String(itemIndex).padStart(2, '0')}`, numberX, numberY)
+          break
+      }
+    }
+    
     // 添加 NClip 品牌 - 根据画布尺寸动态调整字体大小
     const brandFontSize = Math.max(20, Math.min(32, width * 0.045)) // 根据宽度调整，范围 20-32px
     const taglineFontSize = Math.max(12, Math.min(20, width * 0.028)) // 根据宽度调整，范围 12-20px
     
-    const brandColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)'
-    ctx.fillStyle = brandColor
-    ctx.font = `bold ${brandFontSize}px Arial`
-    ctx.textAlign = 'center'
-    ctx.fillText('NClip', width / 2, height - 80)
+    // 根据模板调整品牌颜色
+    let brandColor = 'rgba(255, 255, 255, 0.9)'
+    let taglineColor = 'rgba(255, 255, 255, 0.7)'
     
-    const taglineColor = template === 'pastel' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.7)'
+    switch (template) {
+      case 'ultrathin':
+        brandColor = 'rgba(0, 0, 0, 0.9)'
+        taglineColor = 'rgba(0, 0, 0, 0.6)'
+        break
+      case 'dark':
+        brandColor = 'rgba(255, 255, 255, 0.9)'
+        taglineColor = 'rgba(255, 255, 255, 0.7)'
+        break
+      case 'pastel':
+        brandColor = 'rgba(0, 0, 0, 0.8)'
+        taglineColor = 'rgba(0, 0, 0, 0.6)'
+        break
+      case 'luxury':
+        brandColor = 'rgba(139, 69, 19, 0.9)' // 深棕色
+        taglineColor = 'rgba(139, 69, 19, 0.7)'
+        break
+      case 'monochrome':
+        brandColor = 'rgba(255, 255, 255, 0.95)'
+        taglineColor = 'rgba(255, 255, 255, 0.8)'
+        break
+      case 'sunset':
+        brandColor = 'rgba(255, 255, 255, 0.95)'
+        taglineColor = 'rgba(255, 255, 255, 0.8)'
+        break
+    }
+    
+    // 高级感品牌设计
+    const brandY = height - 65
+    const taglineY = height - 40
+    
+    // 品牌名称
+    ctx.fillStyle = brandColor
+    ctx.font = `700 ${brandFontSize}px SF Pro Display, -apple-system, system-ui`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.letterSpacing = '0.5px'
+    ctx.fillText('NClip', width / 2, brandY)
+    
+    // 添加品牌装饰
+    if (template === 'luxury') {
+      // 奢华模板：金色装饰线
+      const lineWidth = ctx.measureText('NClip').width
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(width / 2 - lineWidth / 2 - 10, brandY + 8)
+      ctx.lineTo(width / 2 + lineWidth / 2 + 10, brandY + 8)
+      ctx.stroke()
+    } else if (template === 'ultrathin') {
+      // 极简模板：细线装饰
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'
+      ctx.lineWidth = 0.5
+      ctx.beginPath()
+      ctx.moveTo(width / 2 - 20, brandY + 6)
+      ctx.lineTo(width / 2 + 20, brandY + 6)
+      ctx.stroke()
+    }
+    
+    // 标语
     ctx.fillStyle = taglineColor
-    ctx.font = `${taglineFontSize}px Arial`
-    ctx.fillText('Copy. Paste. Repeat.', width / 2, height - 50)
+    ctx.font = `400 ${taglineFontSize}px SF Pro Display, -apple-system, system-ui`
+    ctx.textBaseline = 'alphabetic'
+    ctx.letterSpacing = '0.3px'
+    ctx.fillText('Copy. Paste. Repeat.', width / 2, taglineY)
     
     // 保存为PNG
     const tempDir = os.tmpdir()
@@ -1266,6 +1742,71 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
     console.error('Failed to generate text share card:', error)
     console.error('Error details:', error.stack)
     return null
+  }
+}
+
+// 添加高级感装饰元素
+function addPremiumDecorations(ctx: any, width: number, height: number, template: string) {
+  switch (template) {
+    case 'ultrathin':
+      // 极简几何线条
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(width * 0.15, height * 0.2)
+      ctx.lineTo(width * 0.85, height * 0.2)
+      ctx.stroke()
+      
+      ctx.beginPath()
+      ctx.moveTo(width * 0.15, height * 0.8)
+      ctx.lineTo(width * 0.85, height * 0.8)
+      ctx.stroke()
+      break
+      
+    case 'luxury':
+      // 奢华装饰边框
+      const gradientBorder = ctx.createLinearGradient(0, 0, width, 0)
+      gradientBorder.addColorStop(0, 'rgba(255, 215, 0, 0.3)')
+      gradientBorder.addColorStop(0.5, 'rgba(255, 215, 0, 0.6)')
+      gradientBorder.addColorStop(1, 'rgba(255, 215, 0, 0.3)')
+      
+      ctx.strokeStyle = gradientBorder
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.roundRect(20, 20, width - 40, height - 40, 8)
+      ctx.stroke()
+      break
+      
+    case 'sunset':
+    case 'default':
+      // 微妙光晕效果
+      const glowGradient = ctx.createRadialGradient(width / 2, height / 3, 0, width / 2, height / 3, width * 0.6)
+      glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.05)')
+      glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+      
+      ctx.fillStyle = glowGradient
+      ctx.fillRect(0, 0, width, height)
+      break
+      
+    case 'monochrome':
+      // 工业风网格
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
+      ctx.lineWidth = 0.5
+      
+      const gridSize = 40
+      for (let x = 0; x <= width; x += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+        ctx.stroke()
+      }
+      for (let y = 0; y <= height; y += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+        ctx.stroke()
+      }
+      break
   }
 }
 

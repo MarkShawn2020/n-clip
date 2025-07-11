@@ -10,9 +10,13 @@ export default function ShareCardWindow() {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const templates = [
-    { value: 'default', label: '默认蓝' },
-    { value: 'dark', label: '深色调' },
-    { value: 'pastel', label: '柔和色' }
+    { value: 'default', label: '经典蓝' },
+    { value: 'ultrathin', label: '极薄' },
+    { value: 'dark', label: '暗夜' },
+    { value: 'pastel', label: '柔和' },
+    { value: 'luxury', label: '奢华金' },
+    { value: 'monochrome', label: '黑白' },
+    { value: 'sunset', label: '日落' }
   ]
 
   const ratios = [

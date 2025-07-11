@@ -1,12 +1,23 @@
 .share-card-window {
   width: 100vw;
   height: 100vh;
-  background: hsl(0 0% 98%);
+  background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(220 14% 96%) 50%, hsl(210 20% 94%) 100%);
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   color: hsl(222.2 84% 4.9%);
   overflow: hidden;
+  position: relative;
+}
+
+.share-card-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(220 13% 91%), transparent);
 }
 
 /* 加载状态 */
@@ -39,10 +50,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 20px 32px;
   border-bottom: 1px solid hsl(214.3 31.8% 91.4%);
-  background: hsl(0 0% 100%);
+  background: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
+  backdrop-filter: blur(8px);
   flex-shrink: 0;
+  position: relative;
+  box-shadow: 0 1px 3px hsl(222.2 84% 4.9% / 0.05);
+}
+
+.toolbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(214.3 31.8% 91.4%), transparent);
 }
 
 .toolbar-left {
@@ -52,27 +76,31 @@
 }
 
 .toolbar-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   margin: 0;
   color: hsl(222.2 84% 4.9%);
+  background: linear-gradient(135deg, hsl(222.2 84% 4.9%), hsl(221.2 83.2% 53.3%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
 }
 
 .content-type {
   display: inline-flex;
   align-items: center;
-  border-radius: 6px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
-  bg: hsl(210 40% 98%);
-  px: 6px;
-  py: 2px;
-  text-xs: true;
-  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid hsl(214.3 31.8% 88%);
+  background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(220 14% 96%) 100%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 1px 3px hsl(222.2 84% 4.9% / 0.08);
+  font-weight: 600;
   color: hsl(215.3 25% 26.7%);
   text-transform: uppercase;
   font-size: 11px;
-  padding: 4px 8px;
-  background: hsl(210 40% 98%);
+  padding: 6px 12px;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
 }
 
 .toolbar-controls {
@@ -84,44 +112,53 @@
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 120px;
+  gap: 8px;
+  min-width: 130px;
 }
 
 .control-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: hsl(215.4 16.3% 46.9%);
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .select {
   display: flex;
-  height: 36px;
+  height: 40px;
   width: 100%;
-  border-radius: 6px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
-  background-color: hsl(0 0% 100%);
-  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid hsl(214.3 31.8% 88%);
+  background: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 1px 3px hsl(222.2 84% 4.9% / 0.05);
+  padding: 0 16px;
   font-size: 14px;
+  font-weight: 500;
   color: hsl(222.2 84% 4.9%);
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  backdrop-filter: blur(4px);
 }
 
 .select:hover {
   border-color: hsl(217.2 32.6% 17.5%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 4px 12px hsl(222.2 84% 4.9% / 0.1);
+  transform: translateY(-1px);
 }
 
 .select:focus {
   border-color: hsl(221.2 83.2% 53.3%);
-  box-shadow: 0 0 0 2px hsl(221.2 83.2% 53.3% / 0.2);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 0 0 3px hsl(221.2 83.2% 53.3% / 0.12), 0 4px 16px hsl(222.2 84% 4.9% / 0.15);
+  transform: translateY(-1px);
 }
 
 .select:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+  transform: none;
 }
 
 .control-actions {
@@ -134,42 +171,66 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
-  font-weight: 500;
-  height: 36px;
-  padding: 0 16px;
+  font-weight: 600;
+  height: 40px;
+  padding: 0 20px;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid transparent;
   white-space: nowrap;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn:disabled {
   pointer-events: none;
   opacity: 0.5;
+  transform: none;
 }
 
 .btn-secondary {
-  border: 1px solid hsl(214.3 31.8% 91.4%);
-  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(214.3 31.8% 88%);
+  background: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
   color: hsl(222.2 84% 4.9%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 1px 3px hsl(222.2 84% 4.9% / 0.05);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: hsl(210 40% 98%);
+  background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(220 14% 96%) 100%);
   border-color: hsl(217.2 32.6% 17.5%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 4px 12px hsl(222.2 84% 4.9% / 0.1);
+  transform: translateY(-1px);
 }
 
 .btn-primary {
-  background-color: hsl(221.2 83.2% 53.3%);
-  color: hsl(210 40% 98%);
+  background: linear-gradient(135deg, hsl(221.2 83.2% 53.3%) 0%, hsl(262.1 83.3% 57.8%) 100%);
+  color: hsl(0 0% 100%);
   border: 1px solid hsl(221.2 83.2% 53.3%);
+  box-shadow: inset 0 1px 0 hsl(221.2 83.2% 53.3% / 0.2), 0 2px 8px hsl(221.2 83.2% 53.3% / 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: hsl(221.2 83.2% 53.3% / 0.9);
+  background: linear-gradient(135deg, hsl(221.2 83.2% 48%) 0%, hsl(262.1 83.3% 52%) 100%);
+  box-shadow: inset 0 1px 0 hsl(221.2 83.2% 53.3% / 0.2), 0 4px 16px hsl(221.2 83.2% 53.3% / 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
 }
 
 /* 主预览区域 */
@@ -178,6 +239,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding: 32px;
+  position: relative;
 }
 
 .preview-container {
@@ -185,47 +248,95 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: hsl(210 40% 98%);
-  margin: 24px;
-  border-radius: 12px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
+  background: linear-gradient(135deg, hsl(210 40% 99%) 0%, hsl(220 14% 97%) 50%, hsl(210 20% 95%) 100%);
+  border-radius: 16px;
+  border: 1px solid hsl(214.3 31.8% 88%);
   position: relative;
   overflow: hidden;
-  min-height: 400px;
+  min-height: 450px;
+  box-shadow: 
+    inset 0 1px 0 hsl(0 0% 100% / 0.8),
+    0 8px 32px hsl(222.2 84% 4.9% / 0.08),
+    0 4px 16px hsl(222.2 84% 4.9% / 0.04);
+  backdrop-filter: blur(8px);
+}
+
+.preview-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, hsl(221.2 83.2% 53.3% / 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, hsl(262.1 83.3% 57.8% / 0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.preview-container::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.6), transparent);
 }
 
 .preview-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   color: hsl(215.4 16.3% 46.9%);
+  z-index: 1;
+  position: relative;
 }
 
 .preview-image {
-  max-width: calc(100% - 48px);
-  max-height: calc(100% - 48px);
+  max-width: calc(100% - 64px);
+  max-height: calc(100% - 64px);
   object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px hsl(222.2 84% 4.9% / 0.12);
+  border-radius: 12px;
+  box-shadow: 
+    0 8px 32px hsl(222.2 84% 4.9% / 0.15),
+    0 4px 16px hsl(222.2 84% 4.9% / 0.1),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  position: relative;
+}
+
+.preview-image:hover {
+  transform: scale(1.02);
+  box-shadow: 
+    0 12px 48px hsl(222.2 84% 4.9% / 0.2),
+    0 8px 24px hsl(222.2 84% 4.9% / 0.15),
+    inset 0 1px 0 hsl(0 0% 100% / 0.2);
 }
 
 .preview-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   color: hsl(215.4 16.3% 46.9%);
+  z-index: 1;
+  position: relative;
 }
 
 .placeholder-icon {
-  font-size: 48px;
-  opacity: 0.5;
+  font-size: 56px;
+  opacity: 0.4;
+  filter: drop-shadow(0 2px 4px hsl(222.2 84% 4.9% / 0.1));
 }
 
 .placeholder-text {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0.8;
 }
 
 /* 底部内容信息 */
@@ -234,35 +345,50 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-top: 1px solid hsl(214.3 31.8% 91.4%);
-  background: hsl(0 0% 100%);
+  padding: 20px 32px;
+  border-top: 1px solid hsl(214.3 31.8% 88%);
+  background: linear-gradient(180deg, hsl(210 40% 99%) 0%, hsl(0 0% 100%) 100%);
+  backdrop-filter: blur(8px);
+  position: relative;
+  box-shadow: 0 -1px 3px hsl(222.2 84% 4.9% / 0.05);
+}
+
+.content-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 32px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(214.3 31.8% 88%), transparent);
 }
 
 .content-preview {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex: 1;
   min-width: 0;
 }
 
 .content-thumbnail {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
+  border-radius: 8px;
+  border: 1px solid hsl(214.3 31.8% 88%);
+  box-shadow: 0 2px 8px hsl(222.2 84% 4.9% / 0.1);
   flex-shrink: 0;
 }
 
 .content-text {
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.5;
   color: hsl(215.4 16.3% 46.9%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .content-meta {
@@ -274,57 +400,69 @@
 
 .content-time {
   font-size: 12px;
+  font-weight: 600;
   color: hsl(215.4 16.3% 46.9%);
-  background: hsl(210 40% 98%);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
+  background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(220 14% 96%) 100%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid hsl(214.3 31.8% 88%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 1px 3px hsl(222.2 84% 4.9% / 0.05);
 }
 
 .content-size {
   font-size: 12px;
+  font-weight: 600;
   color: hsl(215.4 16.3% 46.9%);
-  background: hsl(210 40% 98%);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid hsl(214.3 31.8% 91.4%);
+  background: linear-gradient(135deg, hsl(210 40% 98%) 0%, hsl(220 14% 96%) 100%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid hsl(214.3 31.8% 88%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100%), 0 1px 3px hsl(222.2 84% 4.9% / 0.05);
 }
 
 /* 响应式设计 */
 @media (max-width: 800px) {
   .toolbar {
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     align-items: stretch;
+    padding: 16px 24px;
   }
   
   .toolbar-controls {
     justify-content: space-between;
-    gap: 12px;
+    gap: 16px;
   }
   
   .control-group {
-    min-width: 100px;
+    min-width: 110px;
     flex: 1;
   }
   
   .control-actions {
     margin-left: 0;
+    gap: 12px;
   }
   
   .btn {
     flex: 1;
+    height: 44px;
+  }
+  
+  .main-preview {
+    padding: 24px;
   }
   
   .preview-container {
-    margin: 16px;
-    min-height: 300px;
+    min-height: 350px;
+    border-radius: 12px;
   }
   
   .content-info {
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
+    padding: 16px 24px;
   }
   
   .content-meta {
@@ -334,15 +472,49 @@
 
 @media (max-height: 600px) {
   .toolbar {
-    padding: 12px 24px;
+    padding: 16px 24px;
+  }
+  
+  .toolbar-title {
+    font-size: 20px;
+  }
+  
+  .main-preview {
+    padding: 24px;
   }
   
   .preview-container {
-    margin: 16px;
-    min-height: 250px;
+    min-height: 280px;
   }
   
   .content-info {
-    padding: 12px 24px;
+    padding: 16px 24px;
+  }
+}
+
+@media (max-width: 500px) {
+  .toolbar {
+    padding: 12px 16px;
+  }
+  
+  .toolbar-title {
+    font-size: 18px;
+  }
+  
+  .control-group {
+    min-width: 90px;
+  }
+  
+  .main-preview {
+    padding: 16px;
+  }
+  
+  .preview-container {
+    min-height: 300px;
+    border-radius: 12px;
+  }
+  
+  .content-info {
+    padding: 12px 16px;
   }
 }
