@@ -91,16 +91,14 @@ Napi::Value InsertTextToFocusedElement(const Napi::CallbackInfo& info) {
     
     // 检查参数
     if (info.Length() < 1 || !info[0].IsString()) {
-        Napi::TypeError::New(env, "Expected string argument").ThrowAsJavaScriptException();
-        return env.Null();
+        return Napi::Boolean::New(env, false);
     }
     
     std::string text = info[0].As<Napi::String>();
     
     // 检查权限
     if (!AXIsProcessTrusted()) {
-        Napi::TypeError::New(env, "Accessibility permission required").ThrowAsJavaScriptException();
-        return env.Null();
+        return Napi::Boolean::New(env, false);
     }
     
     // 获取系统范围的accessibility object
@@ -109,30 +107,38 @@ Napi::Value InsertTextToFocusedElement(const Napi::CallbackInfo& info) {
         return Napi::Boolean::New(env, false);
     }
     
-    // 获取焦点应用
+    bool success = false;
     CFTypeRef focusedApp = NULL;
+    CFTypeRef focusedElement = NULL;
+    
+    // 方法1: 直接从系统级别获取焦点元素
     AXError error = AXUIElementCopyAttributeValue(
         systemWideElement, 
-        kAXFocusedApplicationAttribute, 
-        &focusedApp
-    );
-    
-    if (error != kAXErrorSuccess || !focusedApp) {
-        CFRelease(systemWideElement);
-        return Napi::Boolean::New(env, false);
-    }
-    
-    // 获取焦点元素
-    CFTypeRef focusedElement = NULL;
-    error = AXUIElementCopyAttributeValue(
-        (AXUIElementRef)focusedApp,
-        kAXFocusedUIElementAttribute,
+        kAXFocusedUIElementAttribute, 
         &focusedElement
     );
     
-    bool success = false;
-    
     if (error == kAXErrorSuccess && focusedElement) {
+        // 直接获取到了焦点元素，跳过应用层级
+    } else {
+        // 方法2: 通过应用获取焦点元素
+        error = AXUIElementCopyAttributeValue(
+            systemWideElement, 
+            kAXFocusedApplicationAttribute, 
+            &focusedApp
+        );
+        
+        if (error == kAXErrorSuccess && focusedApp) {
+            // 获取焦点元素
+            error = AXUIElementCopyAttributeValue(
+                (AXUIElementRef)focusedApp,
+                kAXFocusedUIElementAttribute,
+                &focusedElement
+            );
+        }
+    }
+    
+    if (focusedElement) {
         // 创建要插入的文本
         CFStringRef textToInsert = CFStringCreateWithCString(
             kCFAllocatorDefault, 
@@ -141,35 +147,47 @@ Napi::Value InsertTextToFocusedElement(const Napi::CallbackInfo& info) {
         );
         
         if (textToInsert) {
-            // 尝试直接设置文本值
+            // 方法1: 尝试直接设置文本值
             error = AXUIElementSetAttributeValue(
                 (AXUIElementRef)focusedElement,
                 kAXValueAttribute,
                 textToInsert
             );
             
-            success = (error == kAXErrorSuccess);
-            
-            // 如果直接设置失败，尝试获取当前值并替换
-            if (!success) {
-                // 获取当前选择范围
-                CFTypeRef selectedTextRange = NULL;
-                error = AXUIElementCopyAttributeValue(
+            if (error == kAXErrorSuccess) {
+                success = true;
+            } else {
+                // 方法2: 尝试设置选中文本
+                error = AXUIElementSetAttributeValue(
                     (AXUIElementRef)focusedElement,
-                    kAXSelectedTextRangeAttribute,
-                    &selectedTextRange
+                    kAXSelectedTextAttribute,
+                    textToInsert
                 );
                 
-                if (error == kAXErrorSuccess && selectedTextRange) {
-                    // 设置选中的文本为我们要插入的文本
-                    error = AXUIElementSetAttributeValue(
-                        (AXUIElementRef)focusedElement,
-                        kAXSelectedTextAttribute,
-                        textToInsert
-                    );
+                if (error == kAXErrorSuccess) {
+                    success = true;
+                } else {
+                    // 方法3: 尝试先选择全部，再替换
+                    CFRange selectAllRange = CFRangeMake(0, 999999);
+                    AXValueRef rangeValue = AXValueCreate(kAXValueTypeCFRange, &selectAllRange);
                     
-                    success = (error == kAXErrorSuccess);
-                    CFRelease(selectedTextRange);
+                    if (rangeValue) {
+                        // 设置选择范围为全部
+                        AXUIElementSetAttributeValue(
+                            (AXUIElementRef)focusedElement,
+                            kAXSelectedTextRangeAttribute,
+                            rangeValue
+                        );
+                        CFRelease(rangeValue);
+                        
+                        // 再次尝试设置选中文本
+                        error = AXUIElementSetAttributeValue(
+                            (AXUIElementRef)focusedElement,
+                            kAXSelectedTextAttribute,
+                            textToInsert
+                        );
+                        success = (error == kAXErrorSuccess);
+                    }
                 }
             }
             
@@ -188,17 +206,21 @@ Napi::Value InsertTextToFocusedElement(const Napi::CallbackInfo& info) {
 // 获取当前应用信息
 Napi::Value GetFocusedAppInfo(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
+    Napi::Object result = Napi::Object::New(env);
     
     // 检查权限
     if (!AXIsProcessTrusted()) {
-        Napi::TypeError::New(env, "Accessibility permission required").ThrowAsJavaScriptException();
-        return env.Null();
+        result.Set("error", Napi::String::New(env, "Accessibility permission required"));
+        result.Set("hasFocusedElement", Napi::Boolean::New(env, false));
+        return result;
     }
     
     // 获取系统范围的accessibility object
     AXUIElementRef systemWideElement = AXUIElementCreateSystemWide();
     if (!systemWideElement) {
-        return env.Null();
+        result.Set("error", Napi::String::New(env, "Failed to create system wide element"));
+        result.Set("hasFocusedElement", Napi::Boolean::New(env, false));
+        return result;
     }
     
     // 获取焦点应用
@@ -209,75 +231,61 @@ Napi::Value GetFocusedAppInfo(const Napi::CallbackInfo& info) {
         &focusedApp
     );
     
-    Napi::Object result = Napi::Object::New(env);
-    
     // 添加调试信息
     result.Set("axError", Napi::Number::New(env, error));
     result.Set("hasFocusedApp", Napi::Boolean::New(env, focusedApp != NULL));
     
     if (error == kAXErrorSuccess && focusedApp) {
-        // 先尝试获取应用的进程信息
+        // 获取应用的进程信息
         pid_t pid = 0;
-        error = AXUIElementGetPid((AXUIElementRef)focusedApp, &pid);
+        AXError pidError = AXUIElementGetPid((AXUIElementRef)focusedApp, &pid);
         
-        if (error == kAXErrorSuccess) {
+        if (pidError == kAXErrorSuccess) {
             result.Set("pid", Napi::Number::New(env, pid));
-        }
-        
-        // 获取应用名称 - 尝试多个属性
-        CFTypeRef appName = NULL;
-        
-        // 首先尝试获取应用标题
-        error = AXUIElementCopyAttributeValue(
-            (AXUIElementRef)focusedApp,
-            kAXTitleAttribute,
-            &appName
-        );
-        
-        // 如果标题失败，尝试获取应用名称
-        if (error != kAXErrorSuccess || !appName) {
-            if (appName) CFRelease(appName);
-            error = AXUIElementCopyAttributeValue(
-                (AXUIElementRef)focusedApp,
-                kAXRoleDescriptionAttribute,
-                &appName
-            );
-        }
-        
-        if (error == kAXErrorSuccess && appName) {
-            CFStringRef appNameStr = (CFStringRef)appName;
-            CFIndex length = CFStringGetLength(appNameStr);
-            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-            char* buffer = new char[maxSize];
             
-            if (CFStringGetCString(appNameStr, buffer, maxSize, kCFStringEncodingUTF8)) {
-                result.Set("appName", Napi::String::New(env, buffer));
+            // 通过进程获取应用名称
+            ProcessSerialNumber psn;
+            OSStatus status = GetProcessForPID(pid, &psn);
+            if (status == noErr) {
+                CFStringRef processName = NULL;
+                status = CopyProcessName(&psn, &processName);
+                if (status == noErr && processName) {
+                    CFIndex length = CFStringGetLength(processName);
+                    CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+                    char* buffer = new char[maxSize];
+                    
+                    if (CFStringGetCString(processName, buffer, maxSize, kCFStringEncodingUTF8)) {
+                        result.Set("appName", Napi::String::New(env, buffer));
+                    }
+                    
+                    delete[] buffer;
+                    CFRelease(processName);
+                }
             }
-            
-            delete[] buffer;
-            CFRelease(appName);
         }
         
         // 获取焦点元素信息
         CFTypeRef focusedElement = NULL;
-        error = AXUIElementCopyAttributeValue(
+        AXError elementError = AXUIElementCopyAttributeValue(
             (AXUIElementRef)focusedApp,
             kAXFocusedUIElementAttribute,
             &focusedElement
         );
         
-        if (error == kAXErrorSuccess && focusedElement) {
+        result.Set("focusedElementError", Napi::Number::New(env, elementError));
+        
+        if (elementError == kAXErrorSuccess && focusedElement) {
             result.Set("hasFocusedElement", Napi::Boolean::New(env, true));
             
             // 获取元素类型
             CFTypeRef elementRole = NULL;
-            error = AXUIElementCopyAttributeValue(
+            AXError roleError = AXUIElementCopyAttributeValue(
                 (AXUIElementRef)focusedElement,
                 kAXRoleAttribute,
                 &elementRole
             );
             
-            if (error == kAXErrorSuccess && elementRole) {
+            if (roleError == kAXErrorSuccess && elementRole) {
                 CFStringRef roleStr = (CFStringRef)elementRole;
                 CFIndex length = CFStringGetLength(roleStr);
                 CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
@@ -297,6 +305,47 @@ Napi::Value GetFocusedAppInfo(const Napi::CallbackInfo& info) {
         }
         
         CFRelease(focusedApp);
+    } else {
+        result.Set("hasFocusedElement", Napi::Boolean::New(env, false));
+        
+        // 提供错误解释
+        std::string errorMsg;
+        switch (error) {
+            case -25212:
+                errorMsg = "Invalid UI Element (kAXErrorInvalidUIElement)";
+                break;
+            case -25211:
+                errorMsg = "Accessibility API disabled (kAXErrorAPIDisabled)";
+                break;
+            case -25210:
+                errorMsg = "Action unsupported (kAXErrorActionUnsupported)";
+                break;
+            case -25209:
+                errorMsg = "Cannot complete operation (kAXErrorCannotComplete)";
+                break;
+            case -25208:
+                errorMsg = "Not implemented (kAXErrorNotImplemented)";
+                break;
+            case -25207:
+                errorMsg = "Illegal argument (kAXErrorIllegalArgument)";
+                break;
+            case -25206:
+                errorMsg = "No value (kAXErrorNoValue)";
+                break;
+            case -25205:
+                errorMsg = "Attribute unsupported (kAXErrorAttributeUnsupported)";
+                break;
+            case -25204:
+                errorMsg = "Failure (kAXErrorFailure)";
+                break;
+            case 0:
+                errorMsg = "Success (kAXErrorSuccess)";
+                break;
+            default:
+                errorMsg = "Unknown error: " + std::to_string(error);
+                break;
+        }
+        result.Set("errorDescription", Napi::String::New(env, errorMsg));
     }
     
     CFRelease(systemWideElement);

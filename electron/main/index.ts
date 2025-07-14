@@ -307,23 +307,28 @@ async function createWindow() {
     height: windowBounds.height,
     minWidth: 400,
     minHeight: 300,
-    frame: false, // 无边框窗口
-    transparent: true, // 透明背景
-    resizable: true,
+    // Alfred 风格：完全无窗口装饰，但保持前台交互
+    frame: false,
+    transparent: true,
+    titleBarStyle: 'hidden',
+    hasShadow: false,
+    thickFrame: false,
+    // 前台显示且可交互的关键配置
     alwaysOnTop: true,
-    skipTaskbar: true, // 不在任务栏显示
-    show: false,
-    focusable: true, // 需要为true以接收键盘事件
-    acceptFirstMouse: false, // 防止首次点击激活窗口
+    skipTaskbar: true,
+    resizable: false, // 固定大小
     minimizable: false,
     maximizable: false,
-    closable: true,
+    closable: false, // 禁用系统关闭
     fullscreenable: false,
-    hasShadow: false, // 移除窗口阴影，完全无装饰
-    thickFrame: false,
-    titleBarStyle: 'hidden', // 完全隐藏标题栏
-    visibleOnAllWorkspaces: true, // 在所有工作区可见
-    vibrancy: 'under-window', // macOS 毛玻璃效果（可选）
+    show: false,
+    // 关键：保持可交互但不自动成为活动窗口
+    focusable: true, // 必须为 true 以接收键盘事件
+    acceptFirstMouse: true, // 允许点击穿透
+    // macOS 特定：浮动面板类型
+    type: process.platform === 'darwin' ? 'panel' : 'normal',
+    visibleOnAllWorkspaces: true,
+    vibrancy: 'under-window',
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
       preload,
@@ -638,21 +643,18 @@ function registerGlobalShortcuts() {
   // 先取消注册所有快捷键
   globalShortcut.unregisterAll()
   
-  // 使用当前设置的快捷键
+  // 使用当前设置的快捷键 - 显示剪切板窗口（Alfred 风格）
   const shortcutRegistered = globalShortcut.register(currentShortcut, () => {
     if (win) {
       if (win.isVisible()) {
         win.hide()
         stopGlobalKeyboardListener()
       } else {
-        // 使用showInactive()防止抢占焦点，但仍然允许接收键盘事件
+        // Alfred 关键：显示但不激活，保持前台可交互
         win.showInactive()
-        
-        // 确保窗口接收焦点用于键盘事件
-        if (win && win.isVisible()) {
-          win.focus()
-        }
-        
+        // 确保窗口在最前面但不获得系统焦点
+        win.setAlwaysOnTop(true, 'floating')
+        win.focus() // 内部焦点用于键盘事件
         startGlobalKeyboardListener()
       }
     }
@@ -670,9 +672,8 @@ function registerGlobalShortcuts() {
         stopGlobalKeyboardListener()
       } else {
         win.showInactive()
-        if (win && win.isVisible()) {
-          win.focus()
-        }
+        win.setAlwaysOnTop(true, 'floating')
+        win.focus()
         startGlobalKeyboardListener()
       }
     }
@@ -682,6 +683,7 @@ function registerGlobalShortcuts() {
     console.warn('Failed to register backup shortcut CommandOrControl+Alt+C')
   }
 }
+
 
 // 创建系统托盘
 function createTray() {
@@ -708,20 +710,18 @@ function createTray() {
   // 创建托盘菜单
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show NClip',
+      label: 'Show Clipboard Window',
       click: () => {
         if (win) {
-          win.showInactive() // 使用showInactive()防止抢占焦点
-          startGlobalKeyboardListener()
-        }
-      }
-    },
-    {
-      label: 'Hide NClip',
-      click: () => {
-        if (win) {
-          win.hide()
-          stopGlobalKeyboardListener()
+          if (win.isVisible()) {
+            win.hide()
+            stopGlobalKeyboardListener()
+          } else {
+            win.showInactive()
+            win.setAlwaysOnTop(true, 'floating')
+            win.focus()
+            startGlobalKeyboardListener()
+          }
         }
       }
     },
@@ -760,14 +760,16 @@ function createTray() {
   tray.setContextMenu(contextMenu)
   tray.setToolTip('NClip - Copy. Paste. Repeat.')
   
-  // 点击托盘图标显示/隐藏窗口
+  // 点击托盘图标显示/隐藏剪切板窗口
   tray.on('click', () => {
     if (win) {
       if (win.isVisible()) {
         win.hide()
         stopGlobalKeyboardListener()
       } else {
-        win.showInactive() // 使用showInactive()防止抢占焦点
+        win.showInactive()
+        win.setAlwaysOnTop(true, 'floating')
+        win.focus()
         startGlobalKeyboardListener()
       }
     }
@@ -2433,9 +2435,17 @@ ipcMain.handle('accessibility:get-app-info', () => {
   }
 })
 
-// Enhanced paste functionality using accessibility API only
+// Enhanced paste functionality using accessibility API only (Alfred 风格)
 ipcMain.handle('clipboard:paste-to-active-app-enhanced', async (_, text: string) => {
   console.log('Enhanced paste requested with text:', text.length > 50 ? text.substring(0, 50) + '...' : text)
+  
+  // 第一步：立即隐藏窗口（Alfred 关键步骤）
+  if (win && win.isVisible()) {
+    win.hide()
+    stopGlobalKeyboardListener()
+  }
+  
+  // 让系统有机会切换焦点
   
   const hasPermission = checkAccessibilityPermission()
   console.log('Accessibility permission status:', hasPermission)
