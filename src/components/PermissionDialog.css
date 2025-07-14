@@ -1,0 +1,379 @@
+.permission-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.permission-dialog {
+  background: white;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  animation: dialogSlideIn 0.3s ease-out;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.permission-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.permission-dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.permission-dialog-content {
+  padding: 24px;
+}
+
+.permission-status {
+  text-align: center;
+  padding: 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.permission-request {
+  text-align: center;
+}
+
+.permission-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.permission-request h3 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.permission-request p {
+  margin: 0 0 16px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.permission-features {
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.permission-features h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.permission-features ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.permission-features li {
+  margin: 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.request-button {
+  flex: 1;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.request-button:hover {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+}
+
+.skip-button {
+  flex: 1;
+  background: #f0f0f0;
+  color: #666;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skip-button:hover {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.permission-instructions {
+  text-align: left;
+}
+
+.instruction-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.permission-instructions h3 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+}
+
+.permission-instructions p {
+  margin: 0 0 16px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.instruction-steps {
+  margin: 20px 0;
+  padding-left: 0;
+  list-style: none;
+  counter-reset: step-counter;
+}
+
+.instruction-steps li {
+  counter-increment: step-counter;
+  margin: 16px 0;
+  padding-left: 32px;
+  position: relative;
+  color: #666;
+  line-height: 1.5;
+}
+
+.instruction-steps li::before {
+  content: counter(step-counter);
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #667eea;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.open-settings-button {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.open-settings-button:hover {
+  background: #5a6fd8;
+}
+
+.instruction-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.recheck-button {
+  flex: 1;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recheck-button:hover {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+}
+
+.close-button-secondary {
+  flex: 1;
+  background: #f0f0f0;
+  color: #666;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.close-button-secondary:hover {
+  background: #e5e5e5;
+  color: #333;
+}
+
+.permission-success {
+  text-align: center;
+  padding: 20px;
+}
+
+.success-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.permission-success h3 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.permission-success p {
+  margin: 0 0 8px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.permission-note {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .permission-dialog {
+    background: #1a1a1a;
+    border: 1px solid #333;
+  }
+  
+  .permission-dialog-header {
+    border-bottom-color: #333;
+  }
+  
+  .permission-dialog-header h2,
+  .permission-request h3,
+  .permission-instructions h3,
+  .permission-success h3 {
+    color: #ffffff;
+  }
+  
+  .permission-request p,
+  .permission-instructions p,
+  .permission-success p,
+  .permission-features li,
+  .instruction-steps li {
+    color: #cccccc;
+  }
+  
+  .permission-features {
+    background: #2a2a2a;
+    border: 1px solid #333;
+  }
+  
+  .skip-button,
+  .close-button-secondary {
+    background: #333;
+    color: #cccccc;
+  }
+  
+  .skip-button:hover,
+  .close-button-secondary:hover {
+    background: #404040;
+    color: #ffffff;
+  }
+  
+  .close-button {
+    color: #cccccc;
+  }
+  
+  .close-button:hover {
+    background: #333;
+    color: #ffffff;
+  }
+}

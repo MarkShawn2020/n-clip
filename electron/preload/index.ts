@@ -31,6 +31,12 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   // 设置剪切板内容
   setClipboardContent: (item: any) => ipcRenderer.invoke('clipboard:set-content', item),
   
+  // 粘贴到当前活跃的应用
+  pasteToActiveApp: () => ipcRenderer.invoke('clipboard:paste-to-active-app'),
+  
+  // 增强的粘贴功能（使用辅助API）
+  pasteToActiveAppEnhanced: (text: string) => ipcRenderer.invoke('clipboard:paste-to-active-app-enhanced', text),
+  
   // 监听剪切板变化
   onClipboardChange: (callback: (content: any) => void) => {
     ipcRenderer.on('clipboard:changed', (_, content) => callback(content))
@@ -79,6 +85,24 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   
   // 清空历史记录
   clearHistory: () => ipcRenderer.invoke('clipboard:clear-history')
+})
+
+// --------- Expose accessibility API ---------
+contextBridge.exposeInMainWorld('accessibilityAPI', {
+  // 检查辅助权限
+  checkPermission: () => ipcRenderer.invoke('accessibility:check-permission'),
+  
+  // 请求辅助权限
+  requestPermission: () => ipcRenderer.invoke('accessibility:request-permission'),
+  
+  // 获取焦点元素
+  getFocusedElement: () => ipcRenderer.invoke('accessibility:get-focused-element'),
+  
+  // 插入文本到焦点元素
+  insertText: (text: string) => ipcRenderer.invoke('accessibility:insert-text', text),
+  
+  // 获取焦点应用信息
+  getAppInfo: () => ipcRenderer.invoke('accessibility:get-app-info')
 })
 
 // --------- Expose window API ---------

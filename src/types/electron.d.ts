@@ -17,6 +17,8 @@ export interface StorageSettings {
 export interface ClipboardAPI {
   getClipboardHistory: () => Promise<ClipboardItem[]>
   setClipboardContent: (item: ClipboardItem) => Promise<boolean>
+  pasteToActiveApp: () => Promise<{ success: boolean; error?: string }>
+  pasteToActiveAppEnhanced: (text: string) => Promise<{ success: boolean; error?: string; method: string }>
   onClipboardChange: (callback: (content: ClipboardItem) => void) => void
   onClipboardHistoryUpdate: (callback: (history: ClipboardItem[]) => void) => void
   removeClipboardListener: () => void
@@ -31,6 +33,18 @@ export interface ClipboardAPI {
   setStorageSettings: (settings: StorageSettings) => Promise<boolean>
   cleanupExpiredItems: () => Promise<boolean>
   clearHistory: () => Promise<boolean>
+}
+
+export interface AccessibilityAPI {
+  checkPermission: () => Promise<boolean>
+  requestPermission: () => Promise<boolean>
+  getFocusedElement: () => Promise<boolean>
+  insertText: (text: string) => Promise<boolean>
+  getAppInfo: () => Promise<{
+    appName?: string
+    hasFocusedElement: boolean
+    elementRole?: string
+  }>
 }
 
 export interface WindowBounds {
@@ -58,6 +72,7 @@ declare global {
   interface Window {
     clipboardAPI: ClipboardAPI
     windowAPI: WindowAPI
+    accessibilityAPI: AccessibilityAPI
     ipcRenderer: {
       on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
       off: (channel: string, ...args: any[]) => void

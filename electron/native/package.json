@@ -1,0 +1,17 @@
+{
+  "name": "n-clip-accessibility",
+  "version": "1.0.0",
+  "description": "Native accessibility module for n-clip",
+  "main": "build/Release/accessibility.node",
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "build": "node-gyp rebuild"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.0.0"
+  },
+  "gypfile": true
+}

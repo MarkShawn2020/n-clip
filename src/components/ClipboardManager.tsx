@@ -9,6 +9,7 @@ import {
   windowPositionAtom,
   resetSelectedIndexAtom
 } from '../store/atoms'
+import PermissionDialog from './PermissionDialog'
 import './ClipboardManager.css'
 
 export default function ClipboardManager() {
@@ -20,8 +21,10 @@ export default function ClipboardManager() {
   const [, resetSelectedIndex] = useAtom(resetSelectedIndexAtom)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [fullscreenImage, setFullscreenImage] = useState<ClipboardItem | null>(null)
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false)
+  const [hasAccessibilityPermission, setHasAccessibilityPermission] = useState(false)
 
-  // 加载剪切板历史
+  // 加载剪切板历史和检查权限
   useEffect(() => {
     const loadClipboardHistory = async () => {
       try {
@@ -32,7 +35,27 @@ export default function ClipboardManager() {
       }
     }
     
+    const checkAccessibilityPermission = async () => {
+      try {
+        const hasPermission = await window.accessibilityAPI.checkPermission()
+        setHasAccessibilityPermission(hasPermission)
+        
+        // 如果没有权限，显示权限对话框（仅在首次启动时）
+        if (!hasPermission) {
+          // 可以通过 localStorage 来控制是否显示权限对话框
+          const hasShownPermissionDialog = localStorage.getItem('hasShownPermissionDialog')
+          if (!hasShownPermissionDialog) {
+            setShowPermissionDialog(true)
+            localStorage.setItem('hasShownPermissionDialog', 'true')
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check accessibility permission:', error)
+      }
+    }
+    
     loadClipboardHistory()
+    checkAccessibilityPermission()
     
     // 监听剪切板变化
     window.clipboardAPI.onClipboardChange((newItem: ClipboardItem) => {
@@ -106,21 +129,10 @@ export default function ClipboardManager() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [filteredItems, selectedIndex])
 
-  // 自动聚焦搜索框和失焦隐藏
+  // 自动聚焦搜索框
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus()
-    }
-    
-    // 监听窗口失焦事件
-    const handleBlur = () => {
-      window.windowAPI.hideWindow()
-    }
-    
-    window.addEventListener('blur', handleBlur)
-    
-    return () => {
-      window.removeEventListener('blur', handleBlur)
     }
   }, [])
 
@@ -145,10 +157,18 @@ export default function ClipboardManager() {
       
       // 将内容复制到剪切板
       await window.clipboardAPI.setClipboardContent(item)
-      console.log('Content copied to clipboard and window closing:', item.content)
+      console.log('Content copied to clipboard:', item.content)
       
-      // 关闭窗口
+      // 关键：先隐藏窗口，让焦点返回到原应用
       window.windowAPI.hideWindow()
+      
+      // 使用增强的粘贴功能
+      const pasteResult = await window.clipboardAPI.pasteToActiveAppEnhanced(item.content)
+      if (pasteResult.success) {
+        console.log(`Content pasted to active app using ${pasteResult.method}`)
+      } else {
+        console.error('Failed to paste to active app:', pasteResult.error)
+      }
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
     }
@@ -271,6 +291,16 @@ export default function ClipboardManager() {
   // 关闭全屏预览
   const handleCloseFullscreen = () => {
     setFullscreenImage(null)
+  }
+
+  // 权限对话框处理函数
+  const handlePermissionDialogClose = () => {
+    setShowPermissionDialog(false)
+  }
+
+  const handlePermissionGranted = () => {
+    setHasAccessibilityPermission(true)
+    setShowPermissionDialog(false)
   }
 
   // 处理全屏预览的键盘事件
@@ -459,6 +489,13 @@ export default function ClipboardManager() {
           </div>
         </div>
       )}
+      
+      {/* 权限对话框 */}
+      <PermissionDialog
+        isOpen={showPermissionDialog}
+        onClose={handlePermissionDialogClose}
+        onPermissionGranted={handlePermissionGranted}
+      />
     </div>
   )
 }

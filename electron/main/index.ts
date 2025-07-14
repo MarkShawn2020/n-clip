@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, clipboard, globalShortcut, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, clipboard, globalShortcut, Tray, Menu, nativeImage, systemPreferences } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -6,6 +6,13 @@ import os from 'node:os'
 import fs from 'node:fs'
 import sqlite3 from 'sqlite3'
 import { update } from './update'
+import { 
+  checkAccessibilityPermission, 
+  requestAccessibilityPermission, 
+  getFocusedElement, 
+  insertTextToFocusedElement, 
+  getFocusedAppInfo 
+} from '../native/accessibility-wrapper'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +86,21 @@ let storageSettings: StorageSettings = { ...defaultStorageSettings }
 let clipboardHistory: ClipboardItem[] = []
 let lastClipboardContent = ''
 let isSettingClipboard = false // 标记是否正在设置剪切板内容
+
+// 全局事件监听器
+let globalEventListener: any = null
+
+// 启动全局键盘事件监听 (暂时简化)
+function startGlobalKeyboardListener() {
+  // 暂时简化，只记录日志
+  console.log('Started global keyboard listener')
+}
+
+// 停止全局键盘事件监听 (暂时简化)
+function stopGlobalKeyboardListener() {
+  // 暂时简化，只记录日志
+  console.log('Stopped global keyboard listener')
+}
 
 // 数据库实例
 let db: sqlite3.Database | null = null
@@ -285,17 +307,29 @@ async function createWindow() {
     height: windowBounds.height,
     minWidth: 400,
     minHeight: 300,
-    frame: false,
-    transparent: true,
+    frame: false, // 无边框窗口
+    transparent: true, // 透明背景
     resizable: true,
     alwaysOnTop: true,
-    skipTaskbar: true,
+    skipTaskbar: true, // 不在任务栏显示
     show: false,
+    focusable: true, // 需要为true以接收键盘事件
+    acceptFirstMouse: false, // 防止首次点击激活窗口
+    minimizable: false,
+    maximizable: false,
+    closable: true,
+    fullscreenable: false,
+    hasShadow: false, // 移除窗口阴影，完全无装饰
+    thickFrame: false,
+    titleBarStyle: 'hidden', // 完全隐藏标题栏
+    visibleOnAllWorkspaces: true, // 在所有工作区可见
+    vibrancy: 'under-window', // macOS 毛玻璃效果（可选）
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false, // 防止后台限制
     },
   })
   
@@ -336,6 +370,7 @@ async function createWindow() {
       win.webContents.send('window-bounds-changed', bounds)
     }
   })
+
 
   // Test actively push message to the Electron-Renderer
   win.webContents.on('did-finish-load', () => {
@@ -551,13 +586,11 @@ async function createShareCardWindow(item: ClipboardItem) {
         shareCardWindow.show()
         shareCardWindow.focus()
         
-        // 延迟发送数据，确保渲染进程完全准备好
-        setTimeout(() => {
-          if (shareCardWindow && !shareCardWindow.isDestroyed()) {
-            console.log('Sending share card data')
-            shareCardWindow.webContents.send('share-card-data', item)
-          }
-        }, 200)
+        // 发送数据到渲染进程
+        if (shareCardWindow && !shareCardWindow.isDestroyed()) {
+          console.log('Sending share card data')
+          shareCardWindow.webContents.send('share-card-data', item)
+        }
         
         resolve()
       }
@@ -568,13 +601,11 @@ async function createShareCardWindow(item: ClipboardItem) {
         showWindow()
       })
       
-      // 超时保护 - 如果3秒内还没显示，强制显示
-      setTimeout(() => {
-        if (!isResolved && shareCardWindow && !shareCardWindow.isDestroyed()) {
-          console.log('Force showing share card window due to timeout')
-          showWindow()
-        }
-      }, 3000)
+      // 监听超时保护 - 立即显示
+      if (!isResolved && shareCardWindow && !shareCardWindow.isDestroyed()) {
+        console.log('Force showing share card window immediately')
+        showWindow()
+      }
     })
     
     // 加载分享卡片页面
@@ -612,9 +643,17 @@ function registerGlobalShortcuts() {
     if (win) {
       if (win.isVisible()) {
         win.hide()
+        stopGlobalKeyboardListener()
       } else {
-        win.show()
-        win.focus()
+        // 使用showInactive()防止抢占焦点，但仍然允许接收键盘事件
+        win.showInactive()
+        
+        // 确保窗口接收焦点用于键盘事件
+        if (win && win.isVisible()) {
+          win.focus()
+        }
+        
+        startGlobalKeyboardListener()
       }
     }
   })
@@ -628,9 +667,13 @@ function registerGlobalShortcuts() {
     if (win) {
       if (win.isVisible()) {
         win.hide()
+        stopGlobalKeyboardListener()
       } else {
-        win.show()
-        win.focus()
+        win.showInactive()
+        if (win && win.isVisible()) {
+          win.focus()
+        }
+        startGlobalKeyboardListener()
       }
     }
   })
@@ -668,8 +711,8 @@ function createTray() {
       label: 'Show NClip',
       click: () => {
         if (win) {
-          win.show()
-          win.focus()
+          win.showInactive() // 使用showInactive()防止抢占焦点
+          startGlobalKeyboardListener()
         }
       }
     },
@@ -678,6 +721,7 @@ function createTray() {
       click: () => {
         if (win) {
           win.hide()
+          stopGlobalKeyboardListener()
         }
       }
     },
@@ -701,7 +745,14 @@ function createTray() {
     {
       label: 'Quit NClip',
       click: () => {
+        console.log('Quit clicked from tray menu')
+        
+        // 先尝试正常退出
         app.quit()
+        
+        // 如果正常退出失败，立即强制退出
+        console.log('Force quitting immediately')
+        process.exit(0)
       }
     }
   ])
@@ -714,9 +765,10 @@ function createTray() {
     if (win) {
       if (win.isVisible()) {
         win.hide()
+        stopGlobalKeyboardListener()
       } else {
-        win.show()
-        win.focus()
+        win.showInactive() // 使用showInactive()防止抢占焦点
+        startGlobalKeyboardListener()
       }
     }
   })
@@ -874,8 +926,35 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   win = null
-  // 不要退出应用，保持托盘运行
-  // if (process.platform !== 'darwin') app.quit()
+  // 对于开发模式，允许正常退出
+  if (process.env.NODE_ENV === 'development' || !tray) {
+    app.quit()
+  }
+  // 生产模式保持托盘运行
+})
+
+app.on('before-quit', (event) => {
+  console.log('Application is quitting...')
+  
+  // 在开发模式下，确保能够完全退出
+  if (process.env.NODE_ENV === 'development') {
+    // 关闭所有窗口
+    const allWindows = BrowserWindow.getAllWindows()
+    allWindows.forEach(window => {
+      if (!window.isDestroyed()) {
+        window.destroy()
+      }
+    })
+    
+    // 清理托盘
+    if (tray && !tray.isDestroyed()) {
+      tray.destroy()
+      tray = null
+    }
+    
+    // 取消注册全局快捷键
+    globalShortcut.unregisterAll()
+  }
 })
 
 app.on('will-quit', () => {
@@ -908,16 +987,18 @@ app.on('will-quit', () => {
 
 app.on('second-instance', () => {
   if (win) {
-    // Focus on the main window if the user tried to open another
+    // Show the main window if the user tried to open another
     if (win.isMinimized()) win.restore()
-    win.focus()
+    win.showInactive() // 使用showInactive()防止抢占焦点
+    startGlobalKeyboardListener()
   }
 })
 
 app.on('activate', () => {
   const allWindows = BrowserWindow.getAllWindows()
   if (allWindows.length) {
-    allWindows[0].focus()
+    allWindows[0].showInactive() // 使用showInactive()防止抢占焦点
+    startGlobalKeyboardListener()
   } else {
     createWindow()
   }
@@ -974,6 +1055,7 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
 ipcMain.handle('window:hide', () => {
   if (win) {
     win.hide()
+    stopGlobalKeyboardListener()
   }
   return true
 })
@@ -994,6 +1076,23 @@ ipcMain.handle('settings-window:set-bounds', (_, bounds: WindowBounds) => {
 // 获取当前快捷键设置
 ipcMain.handle('shortcuts:get-current-shortcut', () => {
   return currentShortcut
+})
+
+// 自动粘贴到当前应用 - 仅使用 Accessibility API
+ipcMain.handle('clipboard:paste-to-active-app', async () => {
+  const hasPermission = checkAccessibilityPermission()
+  
+  if (!hasPermission) {
+    throw new Error('Accessibility permission required')
+  }
+  
+  const success = insertTextToFocusedElement('')
+  
+  if (!success) {
+    throw new Error('Failed to paste using Accessibility API')
+  }
+  
+  return { success: true, method: 'accessibility' }
 })
 
 // 测试快捷键是否已注册以及是否可以注册新快捷键
@@ -1096,9 +1195,10 @@ ipcMain.handle('shortcuts:update-global-shortcut', (_, newShortcut: string) => {
       if (win) {
         if (win.isVisible()) {
           win.hide()
+          stopGlobalKeyboardListener()
         } else {
-          win.show()
-          win.focus()
+          win.showInactive() // 使用showInactive()防止抢占焦点
+          startGlobalKeyboardListener()
         }
       }
     })
@@ -1114,9 +1214,10 @@ ipcMain.handle('shortcuts:update-global-shortcut', (_, newShortcut: string) => {
         if (win) {
           if (win.isVisible()) {
             win.hide()
+            stopGlobalKeyboardListener()
           } else {
-            win.show()
-            win.focus()
+            win.showInactive() // 使用showInactive()防止抢占焦点
+            startGlobalKeyboardListener()
           }
         }
       })
@@ -1380,8 +1481,7 @@ ipcMain.handle('share-card:open', async (_, item: ClipboardItem) => {
       console.log('Closing existing share card window')
       shareCardWindow.close()
       shareCardWindow = null
-      // 等待一下确保窗口完全关闭
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // 窗口已关闭
     }
     
     await createShareCardWindow(item)
@@ -2285,4 +2385,109 @@ ipcMain.handle('open-win', (_, arg) => {
   } else {
     childWindow.loadFile(indexHtml, { hash: arg })
   }
+})
+
+// Accessibility API handlers
+ipcMain.handle('accessibility:check-permission', () => {
+  try {
+    return checkAccessibilityPermission()
+  } catch (error) {
+    console.error('Error checking accessibility permission:', error)
+    return false
+  }
+})
+
+ipcMain.handle('accessibility:request-permission', () => {
+  try {
+    return requestAccessibilityPermission()
+  } catch (error) {
+    console.error('Error requesting accessibility permission:', error)
+    return false
+  }
+})
+
+ipcMain.handle('accessibility:get-focused-element', () => {
+  try {
+    return getFocusedElement()
+  } catch (error) {
+    console.error('Error getting focused element:', error)
+    return false
+  }
+})
+
+ipcMain.handle('accessibility:insert-text', (_, text: string) => {
+  try {
+    return insertTextToFocusedElement(text)
+  } catch (error) {
+    console.error('Error inserting text:', error)
+    return false
+  }
+})
+
+ipcMain.handle('accessibility:get-app-info', () => {
+  try {
+    return getFocusedAppInfo()
+  } catch (error) {
+    console.error('Error getting app info:', error)
+    return { hasFocusedElement: false }
+  }
+})
+
+// Enhanced paste functionality using accessibility API only
+ipcMain.handle('clipboard:paste-to-active-app-enhanced', async (_, text: string) => {
+  console.log('Enhanced paste requested with text:', text.length > 50 ? text.substring(0, 50) + '...' : text)
+  
+  const hasPermission = checkAccessibilityPermission()
+  console.log('Accessibility permission status:', hasPermission)
+  
+  if (!hasPermission) {
+    throw new Error('Accessibility permission required')
+  }
+  
+  // 获取焦点应用信息进行调试
+  const focusedAppInfo = getFocusedAppInfo()
+  console.log('Focused app info:', focusedAppInfo)
+  
+  const success = insertTextToFocusedElement(text)
+  console.log('Text insertion result:', success)
+  
+  if (!success) {
+    throw new Error(`Failed to insert text using Accessibility API. App: ${focusedAppInfo.appName}, Has focus: ${focusedAppInfo.hasFocusedElement}`)
+  }
+  
+  return { success: true, method: 'accessibility' }
+})
+
+// 处理打开外部 URL 的请求
+ipcMain.on('open-external-url', (_, url: string) => {
+  shell.openExternal(url)
+})
+
+// 处理应用退出请求
+ipcMain.handle('app:quit', () => {
+  console.log('Quit requested from renderer process')
+  app.quit()
+  return true
+})
+
+// 处理强制退出请求
+ipcMain.handle('app:force-quit', () => {
+  console.log('Force quit requested from renderer process')
+  
+  // 强制清理所有资源
+  const allWindows = BrowserWindow.getAllWindows()
+  allWindows.forEach(window => {
+    if (!window.isDestroyed()) {
+      window.destroy()
+    }
+  })
+  
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy()
+  }
+  
+  globalShortcut.unregisterAll()
+  
+  // 强制退出进程
+  process.exit(0)
 })

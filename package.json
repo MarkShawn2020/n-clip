@@ -14,7 +14,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "npm run build:native && tsc && vite build && electron-builder",
+    "build:native": "cd electron/native && node-gyp rebuild",
+    "install:native": "cd electron/native && npm install",
     "preview": "vite preview",
     "pretest": "vite build --mode=test",
     "test": "vitest run"
@@ -23,6 +25,7 @@
     "canvas": "^3.1.2",
     "electron-updater": "^6.3.9",
     "jotai": "^2.12.5",
+    "node-addon-api": "^7.0.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
@@ -33,6 +36,7 @@
     "autoprefixer": "^10.4.20",
     "electron": "^33.2.0",
     "electron-builder": "^24.13.3",
+    "node-gyp": "^10.0.0",
     "postcss": "^8.4.49",
     "postcss-import": "^16.1.0",
     "react": "^18.3.1",

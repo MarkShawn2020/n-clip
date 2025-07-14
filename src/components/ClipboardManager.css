@@ -5,7 +5,7 @@
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
   backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: none; /* 移除阴影，完全无装饰 */
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   position: relative;
@@ -14,6 +14,7 @@
   min-height: 260px;
   display: flex;
   flex-direction: column;
+  border: none; /* 确保没有边框 */
 }
 
 
@@ -23,6 +24,7 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   min-height: 60px;
+  -webkit-app-region: drag; /* 头部区域可拖拽移动窗口 */
 }
 
 .search-container {
