@@ -438,27 +438,29 @@ export default function ClipboardManager() {
                 
                 
                 <div className="preview-actions">
-                  <button 
-                    className="action-btn pin-btn"
-                    onClick={() => handleTogglePin(selectedItem)}
-                    title={selectedItem.isPinned ? "取消固定" : "固定项目"}
-                  >
-                    {selectedItem.isPinned ? '📌' : '📍'}
-                  </button>
-                  <button 
-                    className="action-btn share-btn"
-                    onClick={() => handleShareCard(selectedItem)}
-                    title="生成分享卡片"
-                  >
-                    📤
-                  </button>
-                  <button 
-                    className="action-btn delete-btn"
-                    onClick={() => handleDeleteItem(selectedItem)}
-                    title="删除"
-                  >
-                    🗑️
-                  </button>
+                  <div className="action-buttons">
+                    <button 
+                      className="action-btn pin-btn"
+                      onClick={() => handleTogglePin(selectedItem)}
+                      title={selectedItem.isPinned ? "取消固定" : "固定项目"}
+                    >
+                      {selectedItem.isPinned ? '📌' : '📍'}
+                    </button>
+                    <button 
+                      className="action-btn share-btn"
+                      onClick={() => handleShareCard(selectedItem)}
+                      title="生成分享卡片"
+                    >
+                      📤
+                    </button>
+                    <button 
+                      className="action-btn delete-btn"
+                      onClick={() => handleDeleteItem(selectedItem)}
+                      title="删除"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               </div>
               

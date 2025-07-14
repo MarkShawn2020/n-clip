@@ -188,6 +188,46 @@ function togglePin() {
   }
 }
 
+// 辅助函数：正确插入项目到历史记录，保持固定项目在顶部
+function insertItemIntoHistory(newItem: ClipboardItem) {
+  // 如果新项目是固定的，直接添加到最前面
+  if (newItem.isPinned) {
+    clipboardHistory.unshift(newItem)
+    return
+  }
+  
+  // 找到第一个非固定项目的位置
+  let insertIndex = 0
+  while (insertIndex < clipboardHistory.length && clipboardHistory[insertIndex].isPinned) {
+    insertIndex++
+  }
+  
+  // 在正确位置插入新项目
+  clipboardHistory.splice(insertIndex, 0, newItem)
+}
+
+// 辅助函数：移动现有项目到正确位置，保持固定项目在顶部
+function moveItemToFront(item: ClipboardItem) {
+  const currentIndex = clipboardHistory.indexOf(item)
+  if (currentIndex > 0) {
+    // 移除当前位置的项目
+    clipboardHistory.splice(currentIndex, 1)
+    
+    // 如果项目是固定的，移到最前面
+    if (item.isPinned) {
+      clipboardHistory.unshift(item)
+    } else {
+      // 找到第一个非固定项目的位置
+      let insertIndex = 0
+      while (insertIndex < clipboardHistory.length && clipboardHistory[insertIndex].isPinned) {
+        insertIndex++
+      }
+      // 插入到正确位置
+      clipboardHistory.splice(insertIndex, 0, item)
+    }
+  }
+}
+
 // 数据库实例
 let db: sqlite3.Database | null = null
 
@@ -397,11 +437,11 @@ async function createWindow() {
     frame: false,
     transparent: true,
     hasShadow: false,
-    thickFrame: false,
+    thickFrame: true, // 启用厚边框以支持无边框窗口的尺寸调整
     // 前台显示且可交互的关键配置 - 优化版本
     alwaysOnTop: true,
     skipTaskbar: true,
-    resizable: false, // 固定大小
+    resizable: true, // 允许调整大小
     minimizable: false,
     maximizable: false,
     closable: true, // 允许关闭但不会真正关闭
@@ -1015,7 +1055,7 @@ function startClipboardMonitor() {
         )
         
         if (!existingItem) {
-          clipboardHistory.unshift(newItem)
+          insertItemIntoHistory(newItem)
           
           // 保存到数据库
           saveClipboardItem(newItem).catch(console.error)
@@ -1049,7 +1089,7 @@ function startClipboardMonitor() {
         }
         
         // 添加到历史记录
-        clipboardHistory.unshift(newItem)
+        insertItemIntoHistory(newItem)
         
         // 保存到数据库
         saveClipboardItem(newItem).catch(console.error)
@@ -1067,15 +1107,11 @@ function startClipboardMonitor() {
         }
       } else {
         // 如果存在相同内容，将其移动到最前面
-        const index = clipboardHistory.indexOf(existingItem)
-        if (index > 0) {
-          clipboardHistory.splice(index, 1)
-          clipboardHistory.unshift(existingItem)
-          
-          // 通知渲染进程更新
-          if (win) {
-            win.webContents.send('clipboard:history-updated', clipboardHistory)
-          }
+        moveItemToFront(existingItem)
+        
+        // 通知渲染进程更新
+        if (win) {
+          win.webContents.send('clipboard:history-updated', clipboardHistory)
         }
         
         lastClipboardContent = currentText
@@ -1207,7 +1243,12 @@ app.on('activate', () => {
 
 // IPC handlers
 ipcMain.handle('clipboard:get-history', () => {
-  return clipboardHistory
+  // 确保返回时按固定状态排序：固定项目在前，时间倒序
+  return [...clipboardHistory].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1
+    if (!a.isPinned && b.isPinned) return 1
+    return b.timestamp - a.timestamp
+  })
 })
 
 ipcMain.handle('clipboard:set-content', (_, item: ClipboardItem) => {
