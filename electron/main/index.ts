@@ -469,6 +469,8 @@ async function createWindow() {
       windowBounds = bounds
       // 发送位置更新到渲染进程
       win.webContents.send('window-bounds-changed', bounds)
+      // 保存窗口位置设置
+      saveWindowSettings()
     }
   })
 
@@ -479,6 +481,8 @@ async function createWindow() {
       windowBounds = bounds
       // 发送位置更新到渲染进程
       win.webContents.send('window-bounds-changed', bounds)
+      // 保存窗口位置设置
+      saveWindowSettings()
     }
   })
 
@@ -532,6 +536,8 @@ let currentShortcut = 'CommandOrControl+Shift+C'
 
 // 快捷键设置文件路径
 const shortcutSettingsPath = path.join(os.homedir(), '.neurora', 'n-clip', 'shortcut-settings.json')
+// 窗口位置设置文件路径
+const windowSettingsPath = path.join(os.homedir(), '.neurora', 'n-clip', 'window-settings.json')
 
 // 加载快捷键设置
 function loadShortcutSettings() {
@@ -544,6 +550,56 @@ function loadShortcutSettings() {
   } catch (error) {
     console.error('Failed to load shortcut settings:', error)
     currentShortcut = 'CommandOrControl+Shift+C'
+  }
+}
+
+// 加载窗口位置设置
+function loadWindowSettings() {
+  try {
+    if (fs.existsSync(windowSettingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(windowSettingsPath, 'utf8'))
+      if (settings.mainWindow) {
+        windowBounds = {
+          x: settings.mainWindow.x || 0,
+          y: settings.mainWindow.y || 0,
+          width: settings.mainWindow.width || 640,
+          height: settings.mainWindow.height || 480
+        }
+        console.log(`Loaded window bounds: ${JSON.stringify(windowBounds)}`)
+      }
+      if (settings.settingsWindow) {
+        settingsWindowBounds = {
+          x: settings.settingsWindow.x || 100,
+          y: settings.settingsWindow.y || 100,
+          width: settings.settingsWindow.width || 800,
+          height: settings.settingsWindow.height || 600
+        }
+        console.log(`Loaded settings window bounds: ${JSON.stringify(settingsWindowBounds)}`)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load window settings:', error)
+  }
+}
+
+// 保存窗口位置设置
+function saveWindowSettings() {
+  try {
+    const settings = {
+      mainWindow: windowBounds,
+      settingsWindow: settingsWindowBounds
+    }
+    
+    // 确保目录存在
+    const settingsDir = path.dirname(windowSettingsPath)
+    if (!fs.existsSync(settingsDir)) {
+      fs.mkdirSync(settingsDir, { recursive: true })
+    }
+    
+    fs.writeFileSync(windowSettingsPath, JSON.stringify(settings, null, 2))
+    console.log('Window settings saved successfully')
+  } catch (error) {
+    console.error('Failed to save window settings:', error)
   }
 }
 
@@ -620,6 +676,8 @@ async function openSettingsWindow() {
       settingsWindowBounds = bounds
       // 发送位置更新到渲染进程
       settingsWindow.webContents.send('settings-window-bounds-changed', bounds)
+      // 保存窗口位置设置
+      saveWindowSettings()
     }
   })
 
@@ -630,6 +688,8 @@ async function openSettingsWindow() {
       settingsWindowBounds = bounds
       // 发送位置更新到渲染进程
       settingsWindow.webContents.send('settings-window-bounds-changed', bounds)
+      // 保存窗口位置设置
+      saveWindowSettings()
     }
   })
 
@@ -1061,6 +1121,8 @@ function startExpiryCleanup() {
 app.whenReady().then(() => {
   // 先加载快捷键设置
   loadShortcutSettings()
+  // 加载窗口位置设置
+  loadWindowSettings()
   // 然后创建窗口
   createWindow()
 })
@@ -1188,6 +1250,8 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
   if (win) {
     win.setBounds(bounds)
   }
+  // 保存窗口位置设置
+  saveWindowSettings()
   return true
 })
 
@@ -1206,6 +1270,8 @@ ipcMain.handle('settings-window:set-bounds', (_, bounds: WindowBounds) => {
   if (settingsWindow) {
     settingsWindow.setBounds(bounds)
   }
+  // 保存窗口位置设置
+  saveWindowSettings()
   return true
 })
 
