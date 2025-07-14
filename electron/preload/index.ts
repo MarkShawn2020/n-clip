@@ -135,7 +135,19 @@ contextBridge.exposeInMainWorld('accessibilityAPI', {
   insertText: (text: string) => ipcRenderer.invoke('accessibility:insert-text', text),
   
   // 获取焦点应用信息
-  getAppInfo: () => ipcRenderer.invoke('accessibility:get-app-info')
+  getAppInfo: () => ipcRenderer.invoke('accessibility:get-app-info'),
+  
+  // 高级鼠标事件处理（无焦点抢夺）
+  handleMouseEvent: (x: number, y: number, eventType: string) => 
+    ipcRenderer.invoke('accessibility:handle-mouse-event', x, y, eventType),
+  
+  // 获取指定位置的UI元素信息
+  getElementAtPosition: (x: number, y: number) => 
+    ipcRenderer.invoke('accessibility:get-element-at-position', x, y),
+  
+  // 执行UI元素操作（无焦点抢夺）
+  performElementAction: (x: number, y: number, action: string) => 
+    ipcRenderer.invoke('accessibility:perform-element-action', x, y, action)
 })
 
 // --------- Expose window API ---------
@@ -270,11 +282,12 @@ function useLoading() {
 
 // ----------------------------------------------------------------------
 
-const { appendLoading, removeLoading } = useLoading()
-domReady().then(appendLoading)
+// Loading animation disabled
+// const { appendLoading, removeLoading } = useLoading()
+// domReady().then(appendLoading)
 
-window.onmessage = (ev) => {
-  ev.data.payload === 'removeLoading' && removeLoading()
-}
+// window.onmessage = (ev) => {
+//   ev.data.payload === 'removeLoading' && removeLoading()
+// }
 
-setTimeout(removeLoading, 4999)
+// setTimeout(removeLoading, 4999)

@@ -20,12 +20,29 @@ interface AccessibilityModule {
     elementRole?: string
   }
   simulatePasteKeystroke(): boolean
+  handleMouseEventWithoutFocus(x: number, y: number, eventType: string): boolean
+  getElementAtPosition(x: number, y: number): {
+    hasElement: boolean
+    elementRole?: string
+    elementTitle?: string
+    isClickable?: boolean
+    error?: string
+  }
+  performElementAction(x: number, y: number, action: string): boolean
 }
 
 interface FocusedAppInfo {
   appName?: string
   hasFocusedElement: boolean
   elementRole?: string
+}
+
+interface ElementInfo {
+  hasElement: boolean
+  elementRole?: string
+  elementTitle?: string
+  isClickable?: boolean
+  error?: string
 }
 
 // 创建一个安全的加载函数
@@ -93,5 +110,20 @@ export const simulatePasteKeystroke = (): boolean => {
   return accessibilityModule.simulatePasteKeystroke()
 }
 
+// 高级鼠标事件处理（无焦点抢夺）
+export const handleMouseEventWithoutFocus = (x: number, y: number, eventType: string): boolean => {
+  return accessibilityModule.handleMouseEventWithoutFocus(x, y, eventType)
+}
+
+// 获取指定位置的UI元素信息
+export const getElementAtPosition = (x: number, y: number): ElementInfo => {
+  return accessibilityModule.getElementAtPosition(x, y)
+}
+
+// 执行UI元素操作（无焦点抢夺）
+export const performElementAction = (x: number, y: number, action: string): boolean => {
+  return accessibilityModule.performElementAction(x, y, action)
+}
+
 // 导出类型
-export type { FocusedAppInfo }
+export type { FocusedAppInfo, ElementInfo }

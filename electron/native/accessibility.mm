@@ -434,6 +434,335 @@ Napi::Value SimulatePasteKeystroke(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(env, true);
 }
 
+// 高级鼠标事件处理（无焦点抢夺）
+Napi::Value HandleMouseEventWithoutFocus(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "Expected 3 arguments: x, y, eventType").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    double x = info[0].As<Napi::Number>().DoubleValue();
+    double y = info[1].As<Napi::Number>().DoubleValue();
+    std::string eventType = info[2].As<Napi::String>();
+    
+    CGPoint location = CGPointMake(x, y);
+    
+    // 获取当前焦点窗口信息（用于恢复）
+    pid_t currentFocusedPID = 0;
+    AXUIElementRef systemWideElement = AXUIElementCreateSystemWide();
+    CFTypeRef focusedApp = NULL;
+    
+    if (systemWideElement) {
+        AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedApplicationAttribute,
+            &focusedApp
+        );
+        
+        if (focusedApp) {
+            AXUIElementGetPid((AXUIElementRef)focusedApp, &currentFocusedPID);
+        }
+    }
+    
+    bool success = false;
+    
+    if (eventType == "click") {
+        // 创建鼠标点击事件但不改变焦点
+        CGEventRef mouseDown = CGEventCreateMouseEvent(
+            NULL,
+            kCGEventLeftMouseDown,
+            location,
+            kCGMouseButtonLeft
+        );
+        
+        CGEventRef mouseUp = CGEventCreateMouseEvent(
+            NULL,
+            kCGEventLeftMouseUp,
+            location,
+            kCGMouseButtonLeft
+        );
+        
+        if (mouseDown && mouseUp) {
+            // 设置事件标志以避免焦点切换
+            CGEventSetIntegerValueField(mouseDown, kCGMouseEventSubtype, kCGEventMouseSubtypeDefault);
+            CGEventSetIntegerValueField(mouseUp, kCGMouseEventSubtype, kCGEventMouseSubtypeDefault);
+            
+            // 发送事件
+            CGEventPost(kCGAnnotatedSessionEventTap, mouseDown);
+            usleep(10000); // 10ms延迟
+            CGEventPost(kCGAnnotatedSessionEventTap, mouseUp);
+            
+            CFRelease(mouseDown);
+            CFRelease(mouseUp);
+            success = true;
+        }
+    } else if (eventType == "hover") {
+        // 创建鼠标移动事件
+        CGEventRef mouseMove = CGEventCreateMouseEvent(
+            NULL,
+            kCGEventMouseMoved,
+            location,
+            kCGMouseButtonLeft
+        );
+        
+        if (mouseMove) {
+            CGEventPost(kCGAnnotatedSessionEventTap, mouseMove);
+            CFRelease(mouseMove);
+            success = true;
+        }
+    }
+    
+    // 强制恢复焦点到原应用（如果焦点被意外改变）
+    if (currentFocusedPID > 0) {
+        // 检查焦点是否被改变
+        CFTypeRef newFocusedApp = NULL;
+        if (systemWideElement) {
+            AXUIElementCopyAttributeValue(
+                systemWideElement,
+                kAXFocusedApplicationAttribute,
+                &newFocusedApp
+            );
+            
+            if (newFocusedApp) {
+                pid_t newPID = 0;
+                AXUIElementGetPid((AXUIElementRef)newFocusedApp, &newPID);
+                
+                // 如果焦点被改变，尝试恢复
+                if (newPID != currentFocusedPID) {
+                    ProcessSerialNumber psn;
+                    if (GetProcessForPID(currentFocusedPID, &psn) == noErr) {
+                        SetFrontProcess(&psn);
+                    }
+                }
+                
+                CFRelease(newFocusedApp);
+            }
+        }
+    }
+    
+    // 清理资源
+    if (focusedApp) CFRelease(focusedApp);
+    if (systemWideElement) CFRelease(systemWideElement);
+    
+    return Napi::Boolean::New(env, success);
+}
+
+// 获取鼠标下的UI元素信息（无焦点抢夺）
+Napi::Value GetElementAtPosition(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::Object result = Napi::Object::New(env);
+    
+    if (info.Length() < 2) {
+        result.Set("error", Napi::String::New(env, "Expected x, y coordinates"));
+        return result;
+    }
+    
+    double x = info[0].As<Napi::Number>().DoubleValue();
+    double y = info[1].As<Napi::Number>().DoubleValue();
+    
+    // 检查权限
+    if (!AXIsProcessTrusted()) {
+        result.Set("error", Napi::String::New(env, "Accessibility permission required"));
+        return result;
+    }
+    
+    CGPoint location = CGPointMake(x, y);
+    
+    // 获取系统范围的accessibility object
+    AXUIElementRef systemWideElement = AXUIElementCreateSystemWide();
+    if (!systemWideElement) {
+        result.Set("error", Napi::String::New(env, "Failed to create system wide element"));
+        return result;
+    }
+    
+    // 获取指定位置的UI元素
+    AXUIElementRef elementAtPosition = NULL;
+    AXError error = AXUIElementCopyElementAtPosition(
+        systemWideElement,
+        x, y,
+        &elementAtPosition
+    );
+    
+    if (error == kAXErrorSuccess && elementAtPosition) {
+        result.Set("hasElement", Napi::Boolean::New(env, true));
+        
+        // 获取元素类型
+        CFTypeRef elementRole = NULL;
+        AXError roleError = AXUIElementCopyAttributeValue(
+            elementAtPosition,
+            kAXRoleAttribute,
+            &elementRole
+        );
+        
+        if (roleError == kAXErrorSuccess && elementRole) {
+            CFStringRef roleStr = (CFStringRef)elementRole;
+            CFIndex length = CFStringGetLength(roleStr);
+            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+            char* buffer = new char[maxSize];
+            
+            if (CFStringGetCString(roleStr, buffer, maxSize, kCFStringEncodingUTF8)) {
+                result.Set("elementRole", Napi::String::New(env, buffer));
+            }
+            
+            delete[] buffer;
+            CFRelease(elementRole);
+        }
+        
+        // 获取元素标题/描述
+        CFTypeRef elementTitle = NULL;
+        AXUIElementCopyAttributeValue(
+            elementAtPosition,
+            kAXTitleAttribute,
+            &elementTitle
+        );
+        
+        if (elementTitle) {
+            CFStringRef titleStr = (CFStringRef)elementTitle;
+            CFIndex length = CFStringGetLength(titleStr);
+            CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
+            char* buffer = new char[maxSize];
+            
+            if (CFStringGetCString(titleStr, buffer, maxSize, kCFStringEncodingUTF8)) {
+                result.Set("elementTitle", Napi::String::New(env, buffer));
+            }
+            
+            delete[] buffer;
+            CFRelease(elementTitle);
+        }
+        
+        // 检查是否可点击
+        CFArrayRef actions = NULL;
+        AXUIElementCopyActionNames(elementAtPosition, &actions);
+        
+        bool isClickable = false;
+        if (actions) {
+            CFIndex actionCount = CFArrayGetCount(actions);
+            for (CFIndex i = 0; i < actionCount; i++) {
+                CFStringRef action = (CFStringRef)CFArrayGetValueAtIndex(actions, i);
+                if (CFStringCompare(action, kAXPressAction, 0) == kCFCompareEqualTo) {
+                    isClickable = true;
+                    break;
+                }
+            }
+            CFRelease(actions);
+        }
+        
+        result.Set("isClickable", Napi::Boolean::New(env, isClickable));
+        
+        CFRelease(elementAtPosition);
+    } else {
+        result.Set("hasElement", Napi::Boolean::New(env, false));
+        result.Set("error", Napi::String::New(env, "No element found at position"));
+    }
+    
+    CFRelease(systemWideElement);
+    
+    return result;
+}
+
+// 执行UI元素操作（无焦点抢夺）
+Napi::Value PerformElementAction(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 3) {
+        Napi::TypeError::New(env, "Expected 3 arguments: x, y, action").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    double x = info[0].As<Napi::Number>().DoubleValue();
+    double y = info[1].As<Napi::Number>().DoubleValue();
+    std::string action = info[2].As<Napi::String>();
+    
+    // 检查权限
+    if (!AXIsProcessTrusted()) {
+        return Napi::Boolean::New(env, false);
+    }
+    
+    // 保存当前焦点状态
+    AXUIElementRef systemWideElement = AXUIElementCreateSystemWide();
+    CFTypeRef originalFocusedApp = NULL;
+    pid_t originalPID = 0;
+    
+    if (systemWideElement) {
+        AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedApplicationAttribute,
+            &originalFocusedApp
+        );
+        
+        if (originalFocusedApp) {
+            AXUIElementGetPid((AXUIElementRef)originalFocusedApp, &originalPID);
+        }
+    }
+    
+    bool success = false;
+    
+    // 获取指定位置的UI元素
+    AXUIElementRef elementAtPosition = NULL;
+    AXError error = AXUIElementCopyElementAtPosition(
+        systemWideElement,
+        x, y,
+        &elementAtPosition
+    );
+    
+    if (error == kAXErrorSuccess && elementAtPosition) {
+        CFStringRef actionName = NULL;
+        
+        // 将action字符串转换为CFStringRef
+        if (action == "press" || action == "click") {
+            actionName = kAXPressAction;
+        } else if (action == "increment") {
+            actionName = kAXIncrementAction;
+        } else if (action == "decrement") {
+            actionName = kAXDecrementAction;
+        }
+        
+        if (actionName) {
+            // 执行操作
+            AXError actionError = AXUIElementPerformAction(elementAtPosition, actionName);
+            success = (actionError == kAXErrorSuccess);
+            
+            // 立即尝试恢复焦点
+            if (success && originalPID > 0) {
+                usleep(5000); // 5ms延迟让操作完成
+                
+                // 检查焦点是否被改变
+                CFTypeRef currentFocusedApp = NULL;
+                AXUIElementCopyAttributeValue(
+                    systemWideElement,
+                    kAXFocusedApplicationAttribute,
+                    &currentFocusedApp
+                );
+                
+                if (currentFocusedApp) {
+                    pid_t currentPID = 0;
+                    AXUIElementGetPid((AXUIElementRef)currentFocusedApp, &currentPID);
+                    
+                    if (currentPID != originalPID) {
+                        // 焦点被改变，恢复到原应用
+                        ProcessSerialNumber psn;
+                        if (GetProcessForPID(originalPID, &psn) == noErr) {
+                            SetFrontProcess(&psn);
+                        }
+                    }
+                    
+                    CFRelease(currentFocusedApp);
+                }
+            }
+        }
+        
+        CFRelease(elementAtPosition);
+    }
+    
+    // 清理资源
+    if (originalFocusedApp) CFRelease(originalFocusedApp);
+    if (systemWideElement) CFRelease(systemWideElement);
+    
+    return Napi::Boolean::New(env, success);
+}
+
 // 模块初始化
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("checkAccessibilityPermission", Napi::Function::New(env, CheckAccessibilityPermission));
@@ -442,6 +771,11 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("insertTextToFocusedElement", Napi::Function::New(env, InsertTextToFocusedElement));
     exports.Set("getFocusedAppInfo", Napi::Function::New(env, GetFocusedAppInfo));
     exports.Set("simulatePasteKeystroke", Napi::Function::New(env, SimulatePasteKeystroke));
+    
+    // 新增的高级鼠标事件处理功能
+    exports.Set("handleMouseEventWithoutFocus", Napi::Function::New(env, HandleMouseEventWithoutFocus));
+    exports.Set("getElementAtPosition", Napi::Function::New(env, GetElementAtPosition));
+    exports.Set("performElementAction", Napi::Function::New(env, PerformElementAction));
     
     return exports;
 }

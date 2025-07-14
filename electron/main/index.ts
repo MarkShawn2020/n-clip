@@ -12,7 +12,10 @@ import {
   getFocusedElement, 
   insertTextToFocusedElement, 
   getFocusedAppInfo,
-  simulatePasteKeystroke
+  simulatePasteKeystroke,
+  handleMouseEventWithoutFocus,
+  getElementAtPosition,
+  performElementAction
 } from '../native/accessibility-wrapper'
 
 const require = createRequire(import.meta.url)
@@ -393,7 +396,6 @@ async function createWindow() {
     // Alfred 风格：完全无窗口装饰，但保持前台交互
     frame: false,
     transparent: true,
-    titleBarStyle: 'hidden',
     hasShadow: false,
     thickFrame: false,
     // 前台显示且可交互的关键配置 - 优化版本
@@ -577,7 +579,7 @@ async function openSettingsWindow() {
     height: settingsWindowBounds.height,
     minWidth: 600,
     minHeight: 500,
-    frame: true,
+    frame: false,
     transparent: false,
     resizable: true,
     alwaysOnTop: false,
@@ -659,7 +661,7 @@ async function createShareCardWindow(item: ClipboardItem) {
       height: 700,
       minWidth: 800,
       minHeight: 600,
-      frame: true,
+      frame: false,
       transparent: false,
       resizable: true,
       alwaysOnTop: true,
@@ -2639,6 +2641,36 @@ ipcMain.handle('accessibility:get-app-info', () => {
   } catch (error) {
     console.error('Error getting app info:', error)
     return { hasFocusedElement: false }
+  }
+})
+
+// 高级鼠标事件处理（无焦点抢夺）
+ipcMain.handle('accessibility:handle-mouse-event', (_, x: number, y: number, eventType: string) => {
+  try {
+    return handleMouseEventWithoutFocus(x, y, eventType)
+  } catch (error) {
+    console.error('Error handling mouse event:', error)
+    return false
+  }
+})
+
+// 获取指定位置的UI元素信息
+ipcMain.handle('accessibility:get-element-at-position', (_, x: number, y: number) => {
+  try {
+    return getElementAtPosition(x, y)
+  } catch (error) {
+    console.error('Error getting element at position:', error)
+    return { hasElement: false, error: error.message }
+  }
+})
+
+// 执行UI元素操作（无焦点抢夺）
+ipcMain.handle('accessibility:perform-element-action', (_, x: number, y: number, action: string) => {
+  try {
+    return performElementAction(x, y, action)
+  } catch (error) {
+    console.error('Error performing element action:', error)
+    return false
   }
 })
 
