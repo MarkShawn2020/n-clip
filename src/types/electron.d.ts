@@ -8,11 +8,29 @@ export interface ClipboardItem {
   isPinned?: boolean
 }
 
+export interface StorageSettings {
+  textDuration: number
+  imageDuration: number
+  fileDuration: number
+}
+
 export interface ClipboardAPI {
   getClipboardHistory: () => Promise<ClipboardItem[]>
   setClipboardContent: (item: ClipboardItem) => Promise<boolean>
   onClipboardChange: (callback: (content: ClipboardItem) => void) => void
+  onClipboardHistoryUpdate: (callback: (history: ClipboardItem[]) => void) => void
   removeClipboardListener: () => void
+  deleteItem: (itemId: string) => Promise<boolean>
+  togglePin: (itemId: string) => Promise<boolean>
+  generateShareCard: (item: ClipboardItem, template?: string, ratio?: string) => Promise<string>
+  generateShareCardPreview: (item: ClipboardItem, template?: string, ratio?: string) => Promise<string>
+  openShareCardWindow: (item: ClipboardItem) => Promise<void>
+  createTempFile: (item: ClipboardItem) => Promise<string>
+  startDrag: (item: ClipboardItem) => Promise<void>
+  getStorageSettings: () => Promise<StorageSettings>
+  setStorageSettings: (settings: StorageSettings) => Promise<boolean>
+  cleanupExpiredItems: () => Promise<boolean>
+  clearHistory: () => Promise<boolean>
 }
 
 export interface WindowBounds {
@@ -27,6 +45,10 @@ export interface WindowAPI {
   setBounds: (bounds: WindowBounds) => Promise<boolean>
   onBoundsChanged: (callback: (bounds: WindowBounds) => void) => void
   removeWindowListener: () => void
+  getSettingsBounds: () => Promise<WindowBounds>
+  setSettingsBounds: (bounds: WindowBounds) => Promise<boolean>
+  onSettingsBoundsChanged: (callback: (bounds: WindowBounds) => void) => void
+  removeSettingsWindowListener: () => void
 }
 
 declare global {

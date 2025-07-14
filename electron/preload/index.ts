@@ -66,7 +66,19 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   removeClipboardListener: () => {
     ipcRenderer.removeAllListeners('clipboard:changed')
     ipcRenderer.removeAllListeners('clipboard:history-updated')
-  }
+  },
+  
+  // 获取存储设置
+  getStorageSettings: () => ipcRenderer.invoke('storage:get-settings'),
+  
+  // 设置存储设置
+  setStorageSettings: (settings: any) => ipcRenderer.invoke('storage:set-settings', settings),
+  
+  // 清理过期项目
+  cleanupExpiredItems: () => ipcRenderer.invoke('storage:cleanup-expired'),
+  
+  // 清空历史记录
+  clearHistory: () => ipcRenderer.invoke('clipboard:clear-history')
 })
 
 // --------- Expose window API ---------
@@ -88,6 +100,22 @@ contextBridge.exposeInMainWorld('windowAPI', {
   // 移除窗口监听
   removeWindowListener: () => {
     ipcRenderer.removeAllListeners('window-bounds-changed')
+  },
+  
+  // 获取设置窗口边界
+  getSettingsBounds: () => ipcRenderer.invoke('settings-window:get-bounds'),
+  
+  // 设置设置窗口边界
+  setSettingsBounds: (bounds: any) => ipcRenderer.invoke('settings-window:set-bounds', bounds),
+  
+  // 监听设置窗口边界变化
+  onSettingsBoundsChanged: (callback: (bounds: any) => void) => {
+    ipcRenderer.on('settings-window-bounds-changed', (_, bounds) => callback(bounds))
+  },
+  
+  // 移除设置窗口监听
+  removeSettingsWindowListener: () => {
+    ipcRenderer.removeAllListeners('settings-window-bounds-changed')
   }
 })
 

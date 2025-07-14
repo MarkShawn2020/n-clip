@@ -43,6 +43,7 @@ if (!app.requestSingleInstanceLock()) {
 
 let win: BrowserWindow | null = null
 let shareCardWindow: BrowserWindow | null = null
+let settingsWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
@@ -372,6 +373,96 @@ async function createWindow() {
   startExpiryCleanup()
 }
 
+// 设置窗口位置存储
+let settingsWindowBounds = {
+  x: 100,
+  y: 100,
+  width: 800,
+  height: 600
+}
+
+// 创建设置窗口
+async function openSettingsWindow() {
+  // 如果窗口已存在，聚焦到该窗口
+  if (settingsWindow) {
+    settingsWindow.focus()
+    return
+  }
+
+  settingsWindow = new BrowserWindow({
+    title: 'NClip Settings',
+    x: settingsWindowBounds.x,
+    y: settingsWindowBounds.y,
+    width: settingsWindowBounds.width,
+    height: settingsWindowBounds.height,
+    minWidth: 600,
+    minHeight: 500,
+    frame: true,
+    transparent: false,
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    show: false,
+    icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
+    webPreferences: {
+      preload,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    autoHideMenuBar: true,
+  })
+
+  // 加载设置页面
+  if (VITE_DEV_SERVER_URL) {
+    settingsWindow.loadURL(VITE_DEV_SERVER_URL + '#settings')
+  } else {
+    settingsWindow.loadFile(indexHtml, { hash: 'settings' })
+  }
+
+  // 显示窗口
+  settingsWindow.once('ready-to-show', () => {
+    settingsWindow?.show()
+  })
+
+  // 窗口加载完成后，请求渲染进程提供保存的位置
+  settingsWindow.webContents.once('did-finish-load', () => {
+    if (settingsWindow) {
+      settingsWindow.webContents.send('request-saved-bounds')
+    }
+  })
+
+  // 监听窗口位置变化
+  settingsWindow.on('moved', () => {
+    if (settingsWindow) {
+      const bounds = settingsWindow.getBounds()
+      settingsWindowBounds = bounds
+      // 发送位置更新到渲染进程
+      settingsWindow.webContents.send('settings-window-bounds-changed', bounds)
+    }
+  })
+
+  // 监听窗口大小变化
+  settingsWindow.on('resized', () => {
+    if (settingsWindow) {
+      const bounds = settingsWindow.getBounds()
+      settingsWindowBounds = bounds
+      // 发送位置更新到渲染进程
+      settingsWindow.webContents.send('settings-window-bounds-changed', bounds)
+    }
+  })
+
+  // 窗口关闭时清理引用
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
+  })
+
+  // 阻止外部链接在设置窗口中打开
+  settingsWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:')) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+}
+
 // 创建分享卡片窗口
 async function createShareCardWindow(item: ClipboardItem) {
   try {
@@ -553,6 +644,12 @@ function createTray() {
       }
     },
     { type: 'separator' },
+    {
+      label: 'Settings',
+      click: async () => {
+        await openSettingsWindow()
+      }
+    },
     {
       label: 'Clear History',
       click: () => {
@@ -742,6 +839,12 @@ app.on('will-quit', () => {
   // 清理全局快捷键
   globalShortcut.unregisterAll()
   
+  // 关闭设置窗口
+  if (settingsWindow) {
+    settingsWindow.close()
+    settingsWindow = null
+  }
+  
   // 清理托盘
   if (tray) {
     tray.destroy()
@@ -828,6 +931,19 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
 ipcMain.handle('window:hide', () => {
   if (win) {
     win.hide()
+  }
+  return true
+})
+
+// 设置窗口位置相关 IPC
+ipcMain.handle('settings-window:get-bounds', () => {
+  return settingsWindowBounds
+})
+
+ipcMain.handle('settings-window:set-bounds', (_, bounds: WindowBounds) => {
+  settingsWindowBounds = bounds
+  if (settingsWindow) {
+    settingsWindow.setBounds(bounds)
   }
   return true
 })
@@ -929,6 +1045,32 @@ ipcMain.handle('clipboard:delete-item', async (_, itemId: string) => {
     return false
   } catch (error) {
     console.error('Failed to delete item:', error)
+    return false
+  }
+})
+
+// 清空历史记录
+ipcMain.handle('clipboard:clear-history', async () => {
+  try {
+    // 清空内存中的历史记录
+    clipboardHistory.length = 0
+    
+    // 清空数据库
+    await new Promise<void>((resolve, reject) => {
+      db.run('DELETE FROM clipboard_items', (err) => {
+        if (err) reject(err)
+        else resolve()
+      })
+    })
+    
+    // 通知渲染进程更新
+    if (win) {
+      win.webContents.send('clipboard:history-updated', clipboardHistory)
+    }
+    
+    return true
+  } catch (error) {
+    console.error('Failed to clear history:', error)
     return false
   }
 })

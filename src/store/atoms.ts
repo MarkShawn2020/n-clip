@@ -17,6 +17,14 @@ export const windowPositionAtom = atomWithStorage<WindowPosition>('n-clip-window
   height: 480
 })
 
+// 设置窗口位置状态
+export const settingsWindowPositionAtom = atomWithStorage<WindowPosition>('n-clip-settings-window-position', {
+  x: 100,
+  y: 100,
+  width: 800,
+  height: 600
+})
+
 // 窗口显示状态
 export const windowVisibleAtom = atom(false)
 
@@ -64,3 +72,33 @@ export const resetSelectedIndexAtom = atom(
     }
   }
 )
+
+// 应用设置状态
+export interface AppSettings {
+  theme: 'light' | 'dark' | 'auto'
+  autoStart: boolean
+  showNotifications: boolean
+  hotkey: string
+  maxHistoryItems: number
+  autoCleanup: boolean
+  storage: {
+    textDuration: number
+    imageDuration: number
+    fileDuration: number
+  }
+}
+
+// 使用 localStorage 持久化设置
+export const settingsAtom = atomWithStorage<AppSettings>('n-clip-settings', {
+  theme: 'auto',
+  autoStart: false,
+  showNotifications: true,
+  hotkey: 'CommandOrControl+Shift+C',
+  maxHistoryItems: 1000,
+  autoCleanup: true,
+  storage: {
+    textDuration: 7,
+    imageDuration: 3,
+    fileDuration: 1
+  }
+})
