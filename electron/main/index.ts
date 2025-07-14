@@ -381,6 +381,42 @@ let settingsWindowBounds = {
   height: 600
 }
 
+// 当前快捷键设置
+let currentShortcut = 'CommandOrControl+Shift+C'
+
+// 快捷键设置文件路径
+const shortcutSettingsPath = path.join(os.homedir(), '.neurora', 'n-clip', 'shortcut-settings.json')
+
+// 加载快捷键设置
+function loadShortcutSettings() {
+  try {
+    if (fs.existsSync(shortcutSettingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(shortcutSettingsPath, 'utf8'))
+      currentShortcut = settings.hotkey || 'CommandOrControl+Shift+C'
+      console.log(`Loaded shortcut setting: ${currentShortcut}`)
+    }
+  } catch (error) {
+    console.error('Failed to load shortcut settings:', error)
+    currentShortcut = 'CommandOrControl+Shift+C'
+  }
+}
+
+// 保存快捷键设置
+function saveShortcutSettings(hotkey: string) {
+  try {
+    const settingsDir = path.dirname(shortcutSettingsPath)
+    if (!fs.existsSync(settingsDir)) {
+      fs.mkdirSync(settingsDir, { recursive: true })
+    }
+    
+    const settings = { hotkey }
+    fs.writeFileSync(shortcutSettingsPath, JSON.stringify(settings, null, 2))
+    console.log(`Saved shortcut setting: ${hotkey}`)
+  } catch (error) {
+    console.error('Failed to save shortcut settings:', error)
+  }
+}
+
 // 创建设置窗口
 async function openSettingsWindow() {
   // 如果窗口已存在，聚焦到该窗口
@@ -390,7 +426,7 @@ async function openSettingsWindow() {
   }
 
   settingsWindow = new BrowserWindow({
-    title: 'NClip Settings',
+    title: 'NClip 设置',
     x: settingsWindowBounds.x,
     y: settingsWindowBounds.y,
     width: settingsWindowBounds.width,
@@ -568,9 +604,11 @@ async function createShareCardWindow(item: ClipboardItem) {
 
 // 注册全局快捷键
 function registerGlobalShortcuts() {
-  // 使用不同的快捷键避免与Alfred冲突
-  // 注册 Cmd/Ctrl + Shift + C 显示/隐藏窗口
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+C', () => {
+  // 先取消注册所有快捷键
+  globalShortcut.unregisterAll()
+  
+  // 使用当前设置的快捷键
+  const shortcutRegistered = globalShortcut.register(currentShortcut, () => {
     if (win) {
       if (win.isVisible()) {
         win.hide()
@@ -582,7 +620,7 @@ function registerGlobalShortcuts() {
   })
   
   if (!shortcutRegistered) {
-    console.warn('Failed to register global shortcut CommandOrControl+Shift+C')
+    console.warn(`Failed to register global shortcut ${currentShortcut}`)
   }
   
   // 备用快捷键 Cmd/Ctrl + Option + C
@@ -598,7 +636,7 @@ function registerGlobalShortcuts() {
   })
   
   if (!altShortcutRegistered) {
-    console.warn('Failed to register global shortcut CommandOrControl+Alt+C')
+    console.warn('Failed to register backup shortcut CommandOrControl+Alt+C')
   }
 }
 
@@ -827,7 +865,12 @@ function startExpiryCleanup() {
   }, 60 * 60 * 1000) // 每小时执行一次
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // 先加载快捷键设置
+  loadShortcutSettings()
+  // 然后创建窗口
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   win = null
@@ -946,6 +989,154 @@ ipcMain.handle('settings-window:set-bounds', (_, bounds: WindowBounds) => {
     settingsWindow.setBounds(bounds)
   }
   return true
+})
+
+// 获取当前快捷键设置
+ipcMain.handle('shortcuts:get-current-shortcut', () => {
+  return currentShortcut
+})
+
+// 测试快捷键是否已注册以及是否可以注册新快捷键
+ipcMain.handle('shortcuts:test-shortcut', (_, shortcut: string) => {
+  console.log(`=== 快捷键测试开始 ===`)
+  const isRegistered = globalShortcut.isRegistered(shortcut)
+  console.log(`目标快捷键 ${shortcut}: ${isRegistered ? 'REGISTERED' : 'NOT REGISTERED'}`)
+  
+  // 测试系统是否支持全局快捷键注册
+  const testKeys = [
+    'CommandOrControl+F12',
+    'CommandOrControl+Shift+F11', 
+    'CommandOrControl+Alt+F10',
+    'CommandOrControl+Shift+\`'
+  ]
+  
+  let canRegisterShortcuts = false
+  
+  for (const testKey of testKeys) {
+    try {
+      const testRegistered = globalShortcut.register(testKey, () => {
+        console.log(`Test shortcut ${testKey} triggered!`)
+      })
+      
+      if (testRegistered) {
+        console.log(`✓ 测试快捷键 ${testKey} 注册成功`)
+        globalShortcut.unregister(testKey)
+        console.log(`✓ 测试快捷键 ${testKey} 已注销`)
+        canRegisterShortcuts = true
+        break
+      } else {
+        console.log(`✗ 测试快捷键 ${testKey} 注册失败（可能被占用）`)
+      }
+    } catch (error) {
+      console.log(`✗ 测试快捷键 ${testKey} 出错: ${error.message}`)
+    }
+  }
+  
+  if (!canRegisterShortcuts) {
+    console.log(`⚠️  警告：无法注册任何测试快捷键，可能需要系统权限`)
+  }
+  
+  // 测试目标快捷键是否可以注册
+  let targetCanRegister = false
+  if (!isRegistered) {
+    try {
+      const targetRegistered = globalShortcut.register(shortcut, () => {
+        console.log(`Target shortcut ${shortcut} triggered!`)
+      })
+      
+      if (targetRegistered) {
+        console.log(`✓ 目标快捷键 ${shortcut} 可以注册`)
+        globalShortcut.unregister(shortcut)
+        targetCanRegister = true
+      } else {
+        console.log(`✗ 目标快捷键 ${shortcut} 无法注册（被其他应用占用）`)
+      }
+    } catch (error) {
+      console.log(`✗ 目标快捷键 ${shortcut} 测试出错: ${error.message}`)
+    }
+  }
+  
+  // 列出所有已注册的快捷键
+  console.log('当前应用已注册的快捷键:')
+  const testShortcuts = [
+    'CommandOrControl+Shift+C',
+    'CommandOrControl+Shift+V', 
+    'CommandOrControl+Alt+C',
+    shortcut
+  ]
+  
+  testShortcuts.forEach(test => {
+    const registered = globalShortcut.isRegistered(test)
+    console.log(`  ${test}: ${registered ? '✓' : '✗'}`)
+  })
+  
+  console.log(`=== 快捷键测试结束 ===`)
+  
+  return { 
+    isRegistered, 
+    currentShortcut, 
+    canRegisterShortcuts,
+    targetCanRegister: !isRegistered ? targetCanRegister : true
+  }
+})
+
+// 更新全局快捷键
+ipcMain.handle('shortcuts:update-global-shortcut', (_, newShortcut: string) => {
+  try {
+    // 验证快捷键格式
+    if (!newShortcut || typeof newShortcut !== 'string') {
+      return { success: false, error: '无效的快捷键格式' }
+    }
+    
+    // 先取消注册所有快捷键
+    globalShortcut.unregisterAll()
+    
+    // 尝试注册新的快捷键
+    const shortcutRegistered = globalShortcut.register(newShortcut, () => {
+      if (win) {
+        if (win.isVisible()) {
+          win.hide()
+        } else {
+          win.show()
+          win.focus()
+        }
+      }
+    })
+    
+    if (shortcutRegistered) {
+      currentShortcut = newShortcut
+      
+      // 保存快捷键设置到文件
+      saveShortcutSettings(newShortcut)
+      
+      // 重新注册备用快捷键
+      const altShortcutRegistered = globalShortcut.register('CommandOrControl+Alt+C', () => {
+        if (win) {
+          if (win.isVisible()) {
+            win.hide()
+          } else {
+            win.show()
+            win.focus()
+          }
+        }
+      })
+      
+      if (!altShortcutRegistered) {
+        console.warn('Failed to register backup shortcut CommandOrControl+Alt+C')
+      }
+      
+      return { success: true }
+    } else {
+      // 如果新快捷键注册失败，恢复之前的快捷键
+      registerGlobalShortcuts()
+      return { success: false, error: '快捷键注册失败，可能已被其他应用占用' }
+    }
+  } catch (error) {
+    console.error('Failed to update global shortcut:', error)
+    // 恢复之前的快捷键
+    registerGlobalShortcuts()
+    return { success: false, error: error.message }
+  }
 })
 
 // 创建临时图片文件用于拖拽

@@ -116,7 +116,16 @@ contextBridge.exposeInMainWorld('windowAPI', {
   // 移除设置窗口监听
   removeSettingsWindowListener: () => {
     ipcRenderer.removeAllListeners('settings-window-bounds-changed')
-  }
+  },
+  
+  // 获取当前快捷键设置
+  getCurrentShortcut: () => ipcRenderer.invoke('shortcuts:get-current-shortcut'),
+  
+  // 测试快捷键是否已注册
+  testShortcut: (shortcut: string) => ipcRenderer.invoke('shortcuts:test-shortcut', shortcut),
+  
+  // 更新全局快捷键
+  updateGlobalShortcut: (shortcut: string) => ipcRenderer.invoke('shortcuts:update-global-shortcut', shortcut)
 })
 
 // --------- Preload scripts loading ---------

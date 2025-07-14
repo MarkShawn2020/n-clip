@@ -49,6 +49,9 @@ export interface WindowAPI {
   setSettingsBounds: (bounds: WindowBounds) => Promise<boolean>
   onSettingsBoundsChanged: (callback: (bounds: WindowBounds) => void) => void
   removeSettingsWindowListener: () => void
+  getCurrentShortcut: () => Promise<string>
+  testShortcut: (shortcut: string) => Promise<{ isRegistered: boolean; currentShortcut: string; canRegisterShortcuts: boolean; targetCanRegister: boolean }>
+  updateGlobalShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {
