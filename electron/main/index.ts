@@ -1150,40 +1150,6 @@ async function createShareCardWindow(item: ClipboardItem) {
       shareCardWindow = null
     })
 
-    // 创建一个Promise来确保窗口完全准备好
-    const windowReadyPromise = new Promise<void>((resolve) => {
-      let isResolved = false
-      
-      const showWindow = () => {
-        if (isResolved || !shareCardWindow || shareCardWindow.isDestroyed()) return
-        isResolved = true
-        
-        console.log('Showing share card window')
-        shareCardWindow.show()
-        shareCardWindow.focus()
-        
-        // 发送数据到渲染进程
-        if (shareCardWindow && !shareCardWindow.isDestroyed()) {
-          console.log('Sending share card data')
-          shareCardWindow.webContents.send('share-card-data', item)
-        }
-        
-        resolve()
-      }
-      
-      // 监听ready-to-show事件
-      shareCardWindow?.once('ready-to-show', () => {
-        console.log('Share card window ready to show')
-        showWindow()
-      })
-      
-      // 监听超时保护 - 立即显示
-      if (!isResolved && shareCardWindow && !shareCardWindow.isDestroyed()) {
-        console.log('Force showing share card window immediately')
-        showWindow()
-      }
-    })
-    
     // 加载分享卡片页面
     if (VITE_DEV_SERVER_URL) {
       await shareCardWindow.loadURL(`${VITE_DEV_SERVER_URL}#share-card`)
@@ -1198,8 +1164,14 @@ async function createShareCardWindow(item: ClipboardItem) {
       throw new Error('Share card window was destroyed during creation')
     }
 
-    // 等待窗口完全准备好
-    await windowReadyPromise
+    // 直接显示窗口并发送数据
+    console.log('Showing share card window and sending data')
+    shareCardWindow.show()
+    shareCardWindow.focus()
+    
+    // 发送数据到渲染进程
+    console.log('Sending share card data')
+    shareCardWindow.webContents.send('share-card-data', item)
 
     return shareCardWindow
   } catch (error) {

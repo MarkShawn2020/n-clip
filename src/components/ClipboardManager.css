@@ -223,11 +223,15 @@
     border-radius: 4px;
     border: 1px solid rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    transition: transform 0.2s ease;
+    /* 使用安全的过渡效果避免抖动 */
+    transition: opacity 0.2s ease, filter 0.2s ease;
+    will-change: opacity, filter;
 }
 
 .item-image-preview:hover {
-    transform: scale(1.1);
+    /* 完全禁用缩放避免抖动，改用其他视觉效果 */
+    opacity: 0.8;
+    filter: brightness(1.1);
 }
 
 .item-content {
@@ -524,6 +528,9 @@
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    /* 添加平滑过渡，移除transform避免抖动 */
+    transition: opacity 0.2s ease, filter 0.2s ease;
+    will-change: opacity, filter;
 }
 
 .preview-image:active {
@@ -531,9 +538,9 @@
 }
 
 .preview-image:hover {
+    /* 完全禁用缩放避免抖动，只改变透明度 */
     opacity: 0.9;
-    transform: scale(1.02);
-    transition: all 0.2s ease;
+    filter: brightness(1.05);
 }
 
 .preview-footer {

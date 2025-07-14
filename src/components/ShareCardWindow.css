@@ -309,7 +309,7 @@
 }
 
 .preview-image:hover {
-  transform: scale(1.02);
+  /* 禁用缩放效果避免抖动，只改变阴影 */
   box-shadow: 
     0 12px 48px hsl(222.2 84% 4.9% / 0.2),
     0 8px 24px hsl(222.2 84% 4.9% / 0.15),
