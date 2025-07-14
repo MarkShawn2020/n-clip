@@ -80,6 +80,11 @@ export default function ClipboardManager() {
   // 键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略修饰键组合，避免冲突
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return
+      }
+
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setSelectedIndex(prev => Math.min(prev + 1, filteredItems.length - 1))
@@ -89,8 +94,11 @@ export default function ClipboardManager() {
       } else if (e.key === 'Enter') {
         e.preventDefault()
         if (filteredItems[selectedIndex]) {
-          handleItemSelect(filteredItems[selectedIndex], selectedIndex)
+          handleItemSelectAndClose(filteredItems[selectedIndex], selectedIndex)
         }
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        window.windowAPI.hideWindow()
       }
     }
 
@@ -124,6 +132,23 @@ export default function ClipboardManager() {
       
       await window.clipboardAPI.setClipboardContent(item)
       console.log('Content copied to clipboard:', item.content)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
+  }
+
+  // 选择项目并关闭窗口
+  const handleItemSelectAndClose = async (item: ClipboardItem, index: number) => {
+    try {
+      // 更新选中索引
+      setSelectedIndex(index)
+      
+      // 将内容复制到剪切板
+      await window.clipboardAPI.setClipboardContent(item)
+      console.log('Content copied to clipboard and window closing:', item.content)
+      
+      // 关闭窗口
+      window.windowAPI.hideWindow()
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
     }
@@ -276,6 +301,13 @@ export default function ClipboardManager() {
             placeholder="All Snippets"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // 让导航键传递到全局处理器
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+                // 不阻止事件，让它继续冒泡到全局处理器
+                return
+              }
+            }}
             className="search-input"
           />
         </div>
@@ -288,7 +320,7 @@ export default function ClipboardManager() {
               <div
                 key={item.id}
                 className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isPinned ? 'pinned' : ''}`}
-                onClick={() => handleItemSelect(item, index)}
+                onClick={() => handleItemSelectAndClose(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
                 onContextMenu={(e) => handleContextMenu(e, item)}
               >
