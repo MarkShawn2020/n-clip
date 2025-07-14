@@ -334,8 +334,8 @@ function limitHistorySize(maxSize: number = 100) {
   if (clipboardHistory.length <= maxSize) return
   
   // 分离置顶和非置顶项目
-  const pinnedItems = clipboardHistory.filter(item => item.isPinned)
-  const unpinnedItems = clipboardHistory.filter(item => !item.isPinned)
+  const pinnedItems = clipboardHistory.filter(item => item.isStarred)
+  const unpinnedItems = clipboardHistory.filter(item => !item.isStarred)
   
   // 计算可以保留的非置顶项目数量
   const maxUnpinnedItems = Math.max(0, maxSize - pinnedItems.length)
@@ -357,7 +357,7 @@ function ensureCorrectSorting(context: string = '') {
   let foundUnpinned = false
   for (let i = 0; i < clipboardHistory.length; i++) {
     const item = clipboardHistory[i]
-    if (!item.isPinned) {
+    if (!item.isStarred) {
       foundUnpinned = true
     } else if (foundUnpinned) {
       // 发现置顶项目出现在非置顶项目之后，需要重新排序
@@ -369,8 +369,8 @@ function ensureCorrectSorting(context: string = '') {
   if (needsReSort) {
     console.warn(`[${context}] Sorting violation detected, re-sorting clipboard history`)
     clipboardHistory.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1
-      if (!a.isPinned && b.isPinned) return 1
+      if (a.isStarred && !b.isStarred) return -1
+      if (!a.isStarred && b.isStarred) return 1
       return b.timestamp - a.timestamp
     })
   }
@@ -1399,8 +1399,8 @@ function startClipboardMonitor() {
           
           // 立即重新排序：置顶项目在前，然后按时间排序
           clipboardHistory.sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1
-            if (!a.isPinned && b.isPinned) return 1
+            if (a.isStarred && !b.isStarred) return -1
+            if (!a.isStarred && b.isStarred) return 1
             return b.timestamp - a.timestamp
           })
           
@@ -1438,8 +1438,8 @@ function startClipboardMonitor() {
         
         // 立即重新排序：置顶项目在前，然后按时间排序
         clipboardHistory.sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1
-          if (!a.isPinned && b.isPinned) return 1
+          if (a.isStarred && !b.isStarred) return -1
+          if (!a.isStarred && b.isStarred) return 1
           return b.timestamp - a.timestamp
         })
         
@@ -1464,8 +1464,8 @@ function startClipboardMonitor() {
           
           // 立即重新排序：置顶项目在前，然后按时间排序
           clipboardHistory.sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1
-            if (!a.isPinned && b.isPinned) return 1
+            if (a.isStarred && !b.isStarred) return -1
+            if (!a.isStarred && b.isStarred) return 1
             return b.timestamp - a.timestamp
           })
         }
@@ -1489,7 +1489,7 @@ async function loadClipboardHistoryFromDB() {
     // 简单按时间排序，star状态的排序由前端atoms处理
     clipboardHistory.sort((a, b) => b.timestamp - a.timestamp)
     
-    console.log(`Loaded ${clipboardHistory.length} clipboard items from database (${clipboardHistory.filter(item => item.isPinned).length} pinned)`)
+    console.log(`Loaded ${clipboardHistory.length} clipboard items from database (${clipboardHistory.filter(item => item.isStarred).length} pinned)`)
   } catch (error) {
     console.error('Failed to load clipboard history from database:', error)
   }
@@ -1613,8 +1613,8 @@ ipcMain.handle('clipboard:get-history', () => {
   
   // 确保返回时按固定状态排序：固定项目在前，时间倒序
   return [...clipboardHistory].sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1
-    if (!a.isPinned && b.isPinned) return 1
+    if (a.isStarred && !b.isStarred) return -1
+    if (!a.isStarred && b.isStarred) return 1
     return b.timestamp - a.timestamp
   })
 })
