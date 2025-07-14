@@ -23,7 +23,7 @@ export interface ClipboardAPI {
   onClipboardHistoryUpdate: (callback: (history: ClipboardItem[]) => void) => void
   removeClipboardListener: () => void
   deleteItem: (itemId: string) => Promise<boolean>
-  togglePin: (itemId: string) => Promise<boolean>
+  togglePin: (itemId: string) => Promise<{ success: boolean; isPinned?: boolean; error?: string }>
   generateShareCard: (item: ClipboardItem, template?: string, ratio?: string) => Promise<string>
   generateShareCardPreview: (item: ClipboardItem, template?: string, ratio?: string) => Promise<string>
   openShareCardWindow: (item: ClipboardItem) => Promise<void>

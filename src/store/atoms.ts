@@ -42,6 +42,7 @@ export interface ClipboardItem {
   preview?: string
   timestamp: number
   size?: string
+  isPinned?: boolean
 }
 
 export const clipboardItemsAtom = atom<ClipboardItem[]>([])

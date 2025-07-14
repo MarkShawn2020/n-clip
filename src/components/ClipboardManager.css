@@ -92,9 +92,30 @@
     align-items: center;
     padding: 12px 24px;
     cursor: pointer;
-    transition: background-color 0.1s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-left: 3px solid transparent;
     gap: 16px;
+}
+
+/* Pin动画效果 */
+@keyframes pinEntry {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-1px) scale(1);
+    }
+}
+
+@keyframes pinToggle {
+    0%, 100% { transform: translateY(-1px) scale(1); }
+    50% { transform: translateY(-3px) scale(1.02); }
+}
+
+.item.pin-animating {
+    animation: pinToggle 0.4s ease-in-out;
 }
 
 .item:hover {
@@ -107,13 +128,40 @@
 }
 
 .item.pinned {
-    background: rgba(255, 149, 0, 0.05);
-    border-left-color: #FF9500;
+    background: linear-gradient(135deg, 
+        rgba(99, 102, 241, 0.08) 0%, 
+        rgba(168, 85, 247, 0.06) 100%);
+    border-left-color: #6366f1;
+    position: relative;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.1),
+                0 1px 2px rgba(99, 102, 241, 0.06);
+    transform: translateY(-1px);
+    border-radius: 6px;
+    margin: 2px 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.item.pinned::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        rgba(99, 102, 241, 0.3) 0%, 
+        transparent 100%);
+    border-radius: 6px 6px 0 0;
 }
 
 .item.pinned.selected {
-    background: rgba(255, 149, 0, 0.15);
-    border-left-color: #FF9500;
+    background: linear-gradient(135deg, 
+        rgba(99, 102, 241, 0.15) 0%, 
+        rgba(168, 85, 247, 0.12) 100%);
+    border-left-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15),
+                0 2px 4px rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
 }
 
 .item.draggable-item {
@@ -172,6 +220,13 @@
     margin-top: 2px;
 }
 
+.item-size-inline {
+    font-size: 12px;
+    color: #999;
+    font-weight: 400;
+    margin-left: 8px;
+}
+
 .item-meta {
     display: flex;
     align-items: center;
@@ -181,7 +236,21 @@
 
 .item-pin-indicator {
     font-size: 12px;
-    color: #FF9500;
+    color: #6366f1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 50%;
+    margin-right: 4px;
+    transition: all 0.2s ease;
+}
+
+.item.pinned:hover .item-pin-indicator {
+    background: rgba(99, 102, 241, 0.2);
+    transform: scale(1.1);
 }
 
 .item-shortcut {
@@ -288,12 +357,34 @@
 }
 
 .pin-btn {
-    color: #FF9500;
+    color: #6366f1;
+    position: relative;
+    overflow: hidden;
+}
+
+.pin-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s ease, height 0.3s ease;
+    z-index: 0;
+}
+
+.pin-btn:hover::before {
+    width: 100%;
+    height: 100%;
 }
 
 .pin-btn:hover {
-    background: rgba(255, 149, 0, 0.1);
-    border-color: rgba(255, 149, 0, 0.3);
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-1px);
 }
 
 .action-btn:hover {
@@ -542,18 +633,38 @@
     }
     
     .item.pinned {
-        background: rgba(255, 149, 0, 0.1);
-        border-bottom-color: #FF9500;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.12) 0%, 
+            rgba(168, 85, 247, 0.08) 100%);
+        border-bottom-color: #6366f1;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+        transform: translateY(-1px);
     }
     
     .item.pinned.selected {
-        background: rgba(255, 149, 0, 0.2);
-        border-bottom-color: #FF9500;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.2) 0%, 
+            rgba(168, 85, 247, 0.15) 100%);
+        border-bottom-color: #6366f1;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+        transform: translateY(-2px);
+    }
+    
+    .item.pinned .item-pin-indicator {
+        width: 16px;
+        height: 16px;
+        font-size: 10px;
+        margin-right: 6px;
     }
     
     .item-text {
         font-size: 13px;
         line-height: 1.3;
+    }
+    
+    .item-size-inline {
+        font-size: 10px;
+        margin-left: 6px;
     }
     
     .item-shortcut {

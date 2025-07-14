@@ -292,3 +292,8 @@ CREATE TABLE clipboard_items (
 
 最后执行时间: 2025-07-12 15:45:00
 执行内容: 会话压缩 + 自动提交 + 项目文件更新
+
+## Development Notes
+
+### Current Local State
+- 本地正在pnpm dev，请你不要动

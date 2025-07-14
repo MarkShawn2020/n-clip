@@ -38,6 +38,101 @@ Napi::Value RequestAccessibilityPermission(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(env, isTrusted);
 }
 
+// 全局鼠标事件监听
+static CFMachPortRef mouseEventTap = nullptr;
+static Napi::ThreadSafeFunction mouseCallback;
+
+// 鼠标事件回调
+CGEventRef MouseEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+    if (type == kCGEventLeftMouseDown || type == kCGEventRightMouseDown) {
+        CGPoint location = CGEventGetLocation(event);
+        
+        if (mouseCallback) {
+            mouseCallback.NonBlockingCall([location](Napi::Env env, Napi::Function jsCallback) {
+                jsCallback.Call({ 
+                    Napi::Number::New(env, location.x),
+                    Napi::Number::New(env, location.y)
+                });
+            });
+        }
+    }
+    
+    // 让事件继续传播
+    return event;
+}
+
+// 启动全局鼠标监听
+Napi::Value StartGlobalMouseListener(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 1 || !info[0].IsFunction()) {
+        Napi::TypeError::New(env, "Callback function required").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    // 检查权限
+    if (!AXIsProcessTrusted()) {
+        Napi::TypeError::New(env, "Accessibility permission required").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    // 停止之前的监听
+    if (mouseEventTap) {
+        CGEventTapEnable(mouseEventTap, false);
+        CFRelease(mouseEventTap);
+        mouseEventTap = nullptr;
+    }
+    
+    // 创建线程安全的回调
+    mouseCallback = Napi::ThreadSafeFunction::New(
+        env,
+        info[0].As<Napi::Function>(),
+        "GlobalMouseListener",
+        0,
+        1
+    );
+    
+    // 创建事件监听器
+    mouseEventTap = CGEventTapCreate(
+        kCGSessionEventTap,
+        kCGHeadInsertEventTap,
+        kCGEventTapOptionDefault,
+        CGEventMaskBit(kCGEventLeftMouseDown) | CGEventMaskBit(kCGEventRightMouseDown),
+        MouseEventCallback,
+        nullptr
+    );
+    
+    if (!mouseEventTap) {
+        Napi::Error::New(env, "Failed to create mouse event tap").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+    
+    // 添加到运行循环
+    CFRunLoopSourceRef runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, mouseEventTap, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
+    CGEventTapEnable(mouseEventTap, true);
+    CFRelease(runLoopSource);
+    
+    return Napi::Boolean::New(env, true);
+}
+
+// 停止全局鼠标监听
+Napi::Value StopGlobalMouseListener(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (mouseEventTap) {
+        CGEventTapEnable(mouseEventTap, false);
+        CFRelease(mouseEventTap);
+        mouseEventTap = nullptr;
+    }
+    
+    if (mouseCallback) {
+        mouseCallback.Release();
+    }
+    
+    return Napi::Boolean::New(env, true);
+}
+
 // 获取当前焦点的UI元素
 Napi::Value GetFocusedElement(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
@@ -771,6 +866,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("insertTextToFocusedElement", Napi::Function::New(env, InsertTextToFocusedElement));
     exports.Set("getFocusedAppInfo", Napi::Function::New(env, GetFocusedAppInfo));
     exports.Set("simulatePasteKeystroke", Napi::Function::New(env, SimulatePasteKeystroke));
+    
+    // 全局鼠标监听功能
+    exports.Set("startGlobalMouseListener", Napi::Function::New(env, StartGlobalMouseListener));
+    exports.Set("stopGlobalMouseListener", Napi::Function::New(env, StopGlobalMouseListener));
     
     // 新增的高级鼠标事件处理功能
     exports.Set("handleMouseEventWithoutFocus", Napi::Function::New(env, HandleMouseEventWithoutFocus));

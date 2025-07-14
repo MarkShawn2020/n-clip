@@ -29,7 +29,13 @@ export default function ClipboardManager() {
     const loadClipboardHistory = async () => {
       try {
         const history = await window.clipboardAPI.getClipboardHistory()
-        setItems(history)
+        // 确保初始加载的数据也正确排序
+        const sortedHistory = [...history].sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1
+          if (!a.isPinned && b.isPinned) return 1
+          return b.timestamp - a.timestamp
+        })
+        setItems(sortedHistory)
       } catch (error) {
         console.error('Failed to load clipboard history:', error)
       }
@@ -59,12 +65,26 @@ export default function ClipboardManager() {
     
     // 监听剪切板变化
     window.clipboardAPI.onClipboardChange((newItem: ClipboardItem) => {
-      setItems(prev => [newItem, ...prev])
+      setItems(prev => {
+        // 添加新项目并立即排序：置顶项目永远在前
+        const newItems = [newItem, ...prev]
+        return newItems.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1
+          if (!a.isPinned && b.isPinned) return 1
+          return b.timestamp - a.timestamp
+        })
+      })
     })
     
     // 监听剪切板历史更新
     window.clipboardAPI.onClipboardHistoryUpdate((history: ClipboardItem[]) => {
-      setItems(history)
+      // 确保接收到的历史数据也正确排序
+      const sortedHistory = [...history].sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1
+        if (!a.isPinned && b.isPinned) return 1
+        return b.timestamp - a.timestamp
+      })
+      setItems(sortedHistory)
     })
     
     return () => {
@@ -100,9 +120,8 @@ export default function ClipboardManager() {
     resetSelectedIndex()
   }, [filteredItems.length, resetSelectedIndex])
 
-  // 全局键盘事件监听（替代原有的键盘导航）
+  // 监听主进程发送的导航事件
   useEffect(() => {
-    // 监听主进程的全局键盘事件
     window.clipboardAPI.onNavigateItems((direction: 'up' | 'down') => {
       if (direction === 'down') {
         setSelectedIndex(prev => Math.min(prev + 1, filteredItems.length - 1))
@@ -119,26 +138,38 @@ export default function ClipboardManager() {
     
     window.clipboardAPI.onDeleteCurrentItem(() => {
       if (filteredItems[selectedIndex]) {
-        handleDeleteItem(filteredItems[selectedIndex].id)
+        handleDeleteItem(filteredItems[selectedIndex])
       }
     })
     
     window.clipboardAPI.onTogglePin(() => {
       if (filteredItems[selectedIndex]) {
-        handleTogglePin(filteredItems[selectedIndex].id)
+        handleTogglePin(filteredItems[selectedIndex])
       }
     })
     
-    window.clipboardAPI.onTogglePreview(() => {
-      // 可以添加预览切换功能
-      console.log('Toggle preview')
-    })
-    
-    // 备用的本地键盘事件处理（为了兼容性）
+    return () => {
+      window.clipboardAPI.removeGlobalKeyboardListeners()
+    }
+  }, [filteredItems, selectedIndex])
+
+  // 本地键盘事件处理（备用，只在窗口有焦点时响应）
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 忽略修饰键组合，避免冲突
       if (e.metaKey || e.ctrlKey || e.altKey) {
         return
+      }
+
+      // 如果焦点在搜索框内，某些键让搜索框处理
+      if (document.activeElement === searchInputRef.current) {
+        // 在搜索框中，只处理导航键，让文本输入正常工作
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+          // 导航键由我们处理
+        } else {
+          // 其他键让搜索框正常处理
+          return
+        }
       }
 
       if (e.key === 'ArrowDown') {
@@ -155,6 +186,24 @@ export default function ClipboardManager() {
       } else if (e.key === 'Escape') {
         e.preventDefault()
         window.windowAPI.hideWindow()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // 只有当焦点不在搜索框时才删除项目
+        if (document.activeElement !== searchInputRef.current && filteredItems[selectedIndex]) {
+          e.preventDefault()
+          handleDeleteItem(filteredItems[selectedIndex])
+        }
+      } else if (e.key === ' ') {
+        // 只有当焦点不在搜索框时才切换固定状态
+        if (document.activeElement !== searchInputRef.current && filteredItems[selectedIndex]) {
+          e.preventDefault()
+          handleTogglePin(filteredItems[selectedIndex])
+        }
+      } else if (e.key === 'Tab') {
+        // Tab键可以用于切换预览或其他功能
+        if (document.activeElement !== searchInputRef.current) {
+          e.preventDefault()
+          console.log('Toggle preview or other Tab functionality')
+        }
       }
     }
 
@@ -162,7 +211,6 @@ export default function ClipboardManager() {
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
-      window.clipboardAPI.removeGlobalKeyboardListeners()
     }
   }, [filteredItems, selectedIndex])
 
@@ -274,6 +322,15 @@ export default function ClipboardManager() {
   // 切换固定状态
   const handleTogglePin = async (item: ClipboardItem) => {
     try {
+      // 添加动画类
+      const itemElement = document.querySelector(`[data-item-id="${item.id}"]`)
+      if (itemElement) {
+        itemElement.classList.add('pin-animating')
+        setTimeout(() => {
+          itemElement.classList.remove('pin-animating')
+        }, 400)
+      }
+
       const result = await window.clipboardAPI.togglePin(item.id)
       if (result.success) {
         // 更新本地状态
@@ -380,6 +437,7 @@ export default function ClipboardManager() {
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
+                data-item-id={item.id}
                 className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isPinned ? 'pinned' : ''}`}
                 onClick={() => handleItemSelectAndClose(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
@@ -401,10 +459,12 @@ export default function ClipboardManager() {
                   )}
                 </div>
                 <div className="item-content">
-                  <div className="item-text">{item.content}</div>
-                  {item.size && (
-                    <div className="item-size">{item.size}</div>
-                  )}
+                  <div className="item-text">
+                    {item.content}
+                    {item.size && (
+                      <span className="item-size-inline"> · {item.size}</span>
+                    )}
+                  </div>
                 </div>
                 <div className="item-meta">
                   {item.isPinned && (

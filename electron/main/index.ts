@@ -95,6 +95,60 @@ let isSettingClipboard = false // 标记是否正在设置剪切板内容
 let globalEventListener: any = null
 let activeShortcuts: string[] = []
 
+// 全局鼠标点击监听 - 检测用户点击我们窗口外的任何地方
+let globalMouseListener: any = null
+
+function startGlobalMouseListener() {
+  if (globalMouseListener) return
+  
+  try {
+    // 使用原生模块监听全局鼠标事件
+    const { startGlobalMouseListener } = require('../../electron/native/build/Release/accessibility.node')
+    
+    startGlobalMouseListener((x: number, y: number) => {
+      if (win && win.isVisible()) {
+        const bounds = win.getBounds()
+        
+        // 检查点击是否在窗口外
+        const isOutside = x < bounds.x || 
+                         x > bounds.x + bounds.width ||
+                         y < bounds.y || 
+                         y > bounds.y + bounds.height
+        
+        if (isOutside) {
+          console.log(`Mouse click outside window at ${x},${y}, hiding`)
+          hideWindowIntelligently()
+        }
+      }
+    })
+    
+    globalMouseListener = true // 标记为已启动
+  } catch (error) {
+    console.warn('Global mouse listener not available:', error)
+  }
+}
+
+function stopGlobalMouseListener() {
+  if (globalMouseListener) {
+    try {
+      const { stopGlobalMouseListener } = require('../../electron/native/build/Release/accessibility.node')
+      stopGlobalMouseListener()
+      globalMouseListener = null
+    } catch (error) {
+      console.warn('Error stopping global mouse listener:', error)
+    }
+  }
+}
+
+// 应用切换检测 - 使用原生app事件
+app.on('browser-window-focus', (event, window) => {
+  // 当任何其他应用获得焦点时，隐藏我们的窗口
+  if (win && win.isVisible()) {
+    console.log('Other app gained focus, hiding clipboard window')
+    hideWindowIntelligently()
+  }
+})
+
 // 启动全局键盘事件监听 (完整实现)
 function startGlobalKeyboardListener() {
   console.log('Starting global keyboard listener')
@@ -102,13 +156,18 @@ function startGlobalKeyboardListener() {
   // 清除之前的监听器
   stopGlobalKeyboardListener()
   
+  // 只在窗口可见时注册导航快捷键
+  if (!win || !win.isVisible()) {
+    console.log('Window not visible, skipping keyboard listener registration')
+    return
+  }
+  
   // 注册导航快捷键
   const shortcuts = [
     { key: 'Up', handler: () => navigateItems('up') },
     { key: 'Down', handler: () => navigateItems('down') },
     { key: 'Return', handler: () => selectCurrentItem() },
     { key: 'Escape', handler: () => hideWindow() },
-    { key: 'Tab', handler: () => togglePreview() },
     { key: 'Delete', handler: () => deleteCurrentItem() },
     { key: 'Space', handler: () => togglePin() }
   ]
@@ -145,6 +204,15 @@ function stopGlobalKeyboardListener() {
   activeShortcuts = []
 }
 
+// 隐藏窗口
+function hideWindow() {
+  if (win && win.isVisible()) {
+    win.hide()
+    stopGlobalKeyboardListener()
+    stopGlobalMouseListener()
+  }
+}
+
 // 导航项目函数
 function navigateItems(direction: 'up' | 'down') {
   if (win && win.isVisible()) {
@@ -156,14 +224,6 @@ function navigateItems(direction: 'up' | 'down') {
 function selectCurrentItem() {
   if (win && win.isVisible()) {
     win.webContents.send('select-current-item')
-  }
-}
-
-// 隐藏窗口
-function hideWindow() {
-  if (win && win.isVisible()) {
-    win.hide()
-    stopGlobalKeyboardListener()
   }
 }
 
@@ -225,6 +285,53 @@ function moveItemToFront(item: ClipboardItem) {
       // 插入到正确位置
       clipboardHistory.splice(insertIndex, 0, item)
     }
+  }
+}
+
+// 辅助函数：智能限制历史记录数量，保护置顶项目
+function limitHistorySize(maxSize: number = 100) {
+  if (clipboardHistory.length <= maxSize) return
+  
+  // 分离置顶和非置顶项目
+  const pinnedItems = clipboardHistory.filter(item => item.isPinned)
+  const unpinnedItems = clipboardHistory.filter(item => !item.isPinned)
+  
+  // 计算可以保留的非置顶项目数量
+  const maxUnpinnedItems = Math.max(0, maxSize - pinnedItems.length)
+  
+  // 保留最新的非置顶项目
+  const limitedUnpinnedItems = unpinnedItems.slice(0, maxUnpinnedItems)
+  
+  // 重新组合：置顶项目在前，非置顶项目在后
+  clipboardHistory = [...pinnedItems, ...limitedUnpinnedItems]
+  
+  console.log(`Limited history: ${pinnedItems.length} pinned + ${limitedUnpinnedItems.length} unpinned = ${clipboardHistory.length} total`)
+}
+
+// 辅助函数：验证并确保数组排序正确
+function ensureCorrectSorting(context: string = '') {
+  let needsReSort = false
+  
+  // 检查是否有未置顶项目出现在置顶项目之前
+  let foundUnpinned = false
+  for (let i = 0; i < clipboardHistory.length; i++) {
+    const item = clipboardHistory[i]
+    if (!item.isPinned) {
+      foundUnpinned = true
+    } else if (foundUnpinned) {
+      // 发现置顶项目出现在非置顶项目之后，需要重新排序
+      needsReSort = true
+      break
+    }
+  }
+  
+  if (needsReSort) {
+    console.warn(`[${context}] Sorting violation detected, re-sorting clipboard history`)
+    clipboardHistory.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      return b.timestamp - a.timestamp
+    })
   }
 }
 
@@ -447,11 +554,12 @@ async function createWindow() {
     closable: true, // 允许关闭但不会真正关闭
     fullscreenable: false,
     show: false,
-    // 关键：智能焦点管理配置
-    focusable: true, // 改为 true 以支持交互
-    acceptFirstMouse: false, // 改为 false 防止意外点击激活
+    // 关键：Alfred风格焦点管理配置
+    focusable: false, // 永不获得焦点
+    acceptFirstMouse: false, // 防止点击激活
+    type: 'panel', // 使用panel类型，macOS上不会获得焦点
     // 使用普通窗口类型避免 panel 冲突
-    visibleOnAllWorkspaces: true,
+    // visibleOnAllWorkspaces: true, // 注释掉，因为TypeScript类型不支持
     vibrancy: 'under-window',
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
@@ -481,19 +589,9 @@ async function createWindow() {
     console.log('Window ready to show')
   })
   
-  // 监听窗口获得焦点事件
-  win.on('focus', () => {
-    console.log('Window gained focus')
-    // 当窗口获得焦点时，启动全局键盘监听
-    startGlobalKeyboardListener()
-  })
+  // 注意：由于窗口设置为 focusable: false 和 type: 'panel'，
+  // 窗口永远不会获得焦点，完全符合Alfred风格
   
-  // 监听窗口失去焦点事件
-  win.on('blur', () => {
-    console.log('Window lost focus')
-    // 窗口失去焦点时，停止全局键盘监听
-    stopGlobalKeyboardListener()
-  })
   
   // 监听窗口关闭事件
   win.on('close', (event) => {
@@ -807,7 +905,7 @@ async function createShareCardWindow(item: ClipboardItem) {
       }
       
       // 监听ready-to-show事件
-      shareCardWindow.once('ready-to-show', () => {
+      shareCardWindow?.once('ready-to-show', () => {
         console.log('Share card window ready to show')
         showWindow()
       })
@@ -849,20 +947,13 @@ async function showWindowIntelligently() {
   if (!win) return
   
   try {
-    // 获取当前焦点应用信息
-    const focusedAppInfo = getFocusedAppInfo()
-    console.log('Current focused app:', focusedAppInfo)
-    
     // 使用 showInactive 显示窗口但不激活
     win.showInactive()
     win.setAlwaysOnTop(true, 'floating')
     
-    // 短暂延迟后才开始监听，确保窗口完全显示
-    setTimeout(() => {
-      if (win && win.isVisible()) {
-        startGlobalKeyboardListener()
-      }
-    }, 50)
+    // 立即启动键盘和鼠标监听
+    startGlobalKeyboardListener()
+    startGlobalMouseListener()
     
   } catch (error) {
     console.error('Error showing window intelligently:', error)
@@ -870,6 +961,7 @@ async function showWindowIntelligently() {
     win.showInactive()
     win.setAlwaysOnTop(true, 'floating')
     startGlobalKeyboardListener()
+    startGlobalMouseListener()
   }
 }
 
@@ -878,8 +970,9 @@ async function hideWindowIntelligently() {
   if (!win) return
   
   try {
-    // 停止全局键盘监听
+    // 停止全局监听
     stopGlobalKeyboardListener()
+    stopGlobalMouseListener()
     
     // 隐藏窗口
     win.hide()
@@ -888,6 +981,7 @@ async function hideWindowIntelligently() {
     console.error('Error hiding window intelligently:', error)
     // 备用方案
     stopGlobalKeyboardListener()
+    stopGlobalMouseListener()
     win.hide()
   }
 }
@@ -1055,15 +1149,21 @@ function startClipboardMonitor() {
         )
         
         if (!existingItem) {
-          insertItemIntoHistory(newItem)
+          // 简单粗暴：直接添加到前面，然后重新排序
+          clipboardHistory.unshift(newItem)
+          
+          // 立即重新排序：置顶项目在前，然后按时间排序
+          clipboardHistory.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1
+            if (!a.isPinned && b.isPinned) return 1
+            return b.timestamp - a.timestamp
+          })
           
           // 保存到数据库
           saveClipboardItem(newItem).catch(console.error)
           
-          // 限制历史记录数量
-          if (clipboardHistory.length > 100) {
-            clipboardHistory = clipboardHistory.slice(0, 100)
-          }
+          // 限制历史记录数量，保护置顶项目
+          limitHistorySize(100)
           
           // 通知渲染进程
           if (win) {
@@ -1088,16 +1188,21 @@ function startClipboardMonitor() {
           expiryTime: Date.now() + storageSettings.text
         }
         
-        // 添加到历史记录
-        insertItemIntoHistory(newItem)
+        // 简单粗暴：直接添加到前面，然后重新排序
+        clipboardHistory.unshift(newItem)
+        
+        // 立即重新排序：置顶项目在前，然后按时间排序
+        clipboardHistory.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1
+          if (!a.isPinned && b.isPinned) return 1
+          return b.timestamp - a.timestamp
+        })
         
         // 保存到数据库
         saveClipboardItem(newItem).catch(console.error)
         
-        // 限制历史记录数量
-        if (clipboardHistory.length > 100) {
-          clipboardHistory = clipboardHistory.slice(0, 100)
-        }
+        // 限制历史记录数量，保护置顶项目
+        limitHistorySize(100)
         
         lastClipboardContent = currentText
         
@@ -1106,8 +1211,19 @@ function startClipboardMonitor() {
           win.webContents.send('clipboard:changed', newItem)
         }
       } else {
-        // 如果存在相同内容，将其移动到最前面
-        moveItemToFront(existingItem)
+        // 如果存在相同内容，将其移动到最前面，然后重新排序
+        const index = clipboardHistory.indexOf(existingItem)
+        if (index > 0) {
+          clipboardHistory.splice(index, 1)
+          clipboardHistory.unshift(existingItem)
+          
+          // 立即重新排序：置顶项目在前，然后按时间排序
+          clipboardHistory.sort((a, b) => {
+            if (a.isPinned && !b.isPinned) return -1
+            if (!a.isPinned && b.isPinned) return 1
+            return b.timestamp - a.timestamp
+          })
+        }
         
         // 通知渲染进程更新
         if (win) {
@@ -1124,7 +1240,15 @@ function startClipboardMonitor() {
 async function loadClipboardHistoryFromDB() {
   try {
     clipboardHistory = await loadClipboardHistory()
-    console.log(`Loaded ${clipboardHistory.length} clipboard items from database`)
+    
+    // 确保加载的数据正确排序：置顶项目在前
+    clipboardHistory.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1
+      if (!a.isPinned && b.isPinned) return 1
+      return b.timestamp - a.timestamp
+    })
+    
+    console.log(`Loaded ${clipboardHistory.length} clipboard items from database (${clipboardHistory.filter(item => item.isPinned).length} pinned)`)
   } catch (error) {
     console.error('Failed to load clipboard history from database:', error)
   }
@@ -1243,6 +1367,9 @@ app.on('activate', () => {
 
 // IPC handlers
 ipcMain.handle('clipboard:get-history', () => {
+  // 验证并确保内存中的数据排序正确
+  ensureCorrectSorting('get-history')
+  
   // 确保返回时按固定状态排序：固定项目在前，时间倒序
   return [...clipboardHistory].sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1
@@ -1370,7 +1497,7 @@ ipcMain.handle('shortcuts:test-shortcut', (_, shortcut: string) => {
         console.log(`✗ 测试快捷键 ${testKey} 注册失败（可能被占用）`)
       }
     } catch (error) {
-      console.log(`✗ 测试快捷键 ${testKey} 出错: ${error.message}`)
+      console.log(`✗ 测试快捷键 ${testKey} 出错: ${(error as Error).message}`)
     }
   }
   
@@ -1394,7 +1521,7 @@ ipcMain.handle('shortcuts:test-shortcut', (_, shortcut: string) => {
         console.log(`✗ 目标快捷键 ${shortcut} 无法注册（被其他应用占用）`)
       }
     } catch (error) {
-      console.log(`✗ 目标快捷键 ${shortcut} 测试出错: ${error.message}`)
+      console.log(`✗ 目标快捷键 ${shortcut} 测试出错: ${(error as Error).message}`)
     }
   }
   
@@ -1479,7 +1606,7 @@ ipcMain.handle('shortcuts:update-global-shortcut', (_, newShortcut: string) => {
     console.error('Failed to update global shortcut:', error)
     // 恢复之前的快捷键
     registerGlobalShortcuts()
-    return { success: false, error: error.message }
+    return { success: false, error: (error as Error).message }
   }
 })
 
@@ -1592,7 +1719,7 @@ ipcMain.handle('clipboard:clear-history', async () => {
     
     // 清空数据库
     await new Promise<void>((resolve, reject) => {
-      db.run('DELETE FROM clipboard_items', (err) => {
+      db?.run('DELETE FROM clipboard_items', (err) => {
         if (err) reject(err)
         else resolve()
       })
@@ -1784,7 +1911,7 @@ ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem, t
     return false
   } catch (error) {
     console.error('Failed to generate share card:', error)
-    console.error('Error details:', error.stack)
+    console.error('Error details:', (error as Error).stack)
     return false
   }
 })
@@ -2145,7 +2272,7 @@ async function generateImageShareCard(item: ClipboardItem, template: string = 'd
     return tempPath
   } catch (error) {
     console.error('Failed to generate image share card:', error)
-    console.error('Error details:', error.stack)
+    console.error('Error details:', (error as Error).stack)
     return null
   }
 }
@@ -2491,7 +2618,7 @@ async function generateTextShareCard(item: ClipboardItem, template: string = 'de
     return tempPath
   } catch (error) {
     console.error('Failed to generate text share card:', error)
-    console.error('Error details:', error.stack)
+    console.error('Error details:', (error as Error).stack)
     return null
   }
 }
@@ -2767,7 +2894,7 @@ ipcMain.handle('accessibility:get-element-at-position', (_, x: number, y: number
     return getElementAtPosition(x, y)
   } catch (error) {
     console.error('Error getting element at position:', error)
-    return { hasElement: false, error: error.message }
+    return { hasElement: false, error: (error as Error).message }
   }
 })
 
