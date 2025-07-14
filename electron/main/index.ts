@@ -11,7 +11,8 @@ import {
   requestAccessibilityPermission, 
   getFocusedElement, 
   insertTextToFocusedElement, 
-  getFocusedAppInfo 
+  getFocusedAppInfo,
+  simulatePasteKeystroke
 } from '../native/accessibility-wrapper'
 
 const require = createRequire(import.meta.url)
@@ -89,17 +90,99 @@ let isSettingClipboard = false // 标记是否正在设置剪切板内容
 
 // 全局事件监听器
 let globalEventListener: any = null
+let activeShortcuts: string[] = []
 
-// 启动全局键盘事件监听 (暂时简化)
+// 启动全局键盘事件监听 (完整实现)
 function startGlobalKeyboardListener() {
-  // 暂时简化，只记录日志
-  console.log('Started global keyboard listener')
+  console.log('Starting global keyboard listener')
+  
+  // 清除之前的监听器
+  stopGlobalKeyboardListener()
+  
+  // 注册导航快捷键
+  const shortcuts = [
+    { key: 'Up', handler: () => navigateItems('up') },
+    { key: 'Down', handler: () => navigateItems('down') },
+    { key: 'Return', handler: () => selectCurrentItem() },
+    { key: 'Escape', handler: () => hideWindow() },
+    { key: 'Tab', handler: () => togglePreview() },
+    { key: 'Delete', handler: () => deleteCurrentItem() },
+    { key: 'Space', handler: () => togglePin() }
+  ]
+  
+  shortcuts.forEach(({ key, handler }) => {
+    try {
+      const success = globalShortcut.register(key, handler)
+      if (success) {
+        activeShortcuts.push(key)
+        console.log(`Registered global shortcut: ${key}`)
+      } else {
+        console.warn(`Failed to register global shortcut: ${key}`)
+      }
+    } catch (error) {
+      console.error(`Error registering shortcut ${key}:`, error)
+    }
+  })
 }
 
-// 停止全局键盘事件监听 (暂时简化)
+// 停止全局键盘事件监听 (完整实现)
 function stopGlobalKeyboardListener() {
-  // 暂时简化，只记录日志
-  console.log('Stopped global keyboard listener')
+  console.log('Stopping global keyboard listener')
+  
+  // 取消注册导航快捷键
+  activeShortcuts.forEach(key => {
+    try {
+      globalShortcut.unregister(key)
+      console.log(`Unregistered global shortcut: ${key}`)
+    } catch (error) {
+      console.error(`Error unregistering shortcut ${key}:`, error)
+    }
+  })
+  
+  activeShortcuts = []
+}
+
+// 导航项目函数
+function navigateItems(direction: 'up' | 'down') {
+  if (win && win.isVisible()) {
+    win.webContents.send('navigate-items', direction)
+  }
+}
+
+// 选择当前项目
+function selectCurrentItem() {
+  if (win && win.isVisible()) {
+    win.webContents.send('select-current-item')
+  }
+}
+
+// 隐藏窗口
+function hideWindow() {
+  if (win && win.isVisible()) {
+    win.hide()
+    stopGlobalKeyboardListener()
+  }
+}
+
+// 切换预览
+function togglePreview() {
+  if (win && win.isVisible()) {
+    win.webContents.send('toggle-preview')
+  }
+}
+
+// 删除当前项目
+function deleteCurrentItem() {
+  if (win && win.isVisible()) {
+    win.webContents.send('delete-current-item')
+  }
+}
+
+// 切换固定状态
+function togglePin() {
+  if (win && win.isVisible()) {
+    win.webContents.send('toggle-pin')
+  }
 }
 
 // 数据库实例
@@ -313,20 +396,19 @@ async function createWindow() {
     titleBarStyle: 'hidden',
     hasShadow: false,
     thickFrame: false,
-    // 前台显示且可交互的关键配置
+    // 前台显示且可交互的关键配置 - 优化版本
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false, // 固定大小
     minimizable: false,
     maximizable: false,
-    closable: false, // 禁用系统关闭
+    closable: true, // 允许关闭但不会真正关闭
     fullscreenable: false,
     show: false,
-    // 关键：保持可交互但不自动成为活动窗口
-    focusable: true, // 必须为 true 以接收键盘事件
-    acceptFirstMouse: true, // 允许点击穿透
-    // macOS 特定：浮动面板类型
-    type: process.platform === 'darwin' ? 'panel' : 'normal',
+    // 关键：智能焦点管理配置
+    focusable: true, // 改为 true 以支持交互
+    acceptFirstMouse: false, // 改为 false 防止意外点击激活
+    // 使用普通窗口类型避免 panel 冲突
     visibleOnAllWorkspaces: true,
     vibrancy: 'under-window',
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
@@ -351,9 +433,31 @@ async function createWindow() {
     win.loadFile(indexHtml)
   }
 
-  // Show window when ready
+  // Show window when ready - 不自动显示
   win.once('ready-to-show', () => {
-    win?.show()
+    // 不自动显示，等待用户触发
+    console.log('Window ready to show')
+  })
+  
+  // 监听窗口获得焦点事件
+  win.on('focus', () => {
+    console.log('Window gained focus')
+    // 当窗口获得焦点时，启动全局键盘监听
+    startGlobalKeyboardListener()
+  })
+  
+  // 监听窗口失去焦点事件
+  win.on('blur', () => {
+    console.log('Window lost focus')
+    // 窗口失去焦点时，停止全局键盘监听
+    stopGlobalKeyboardListener()
+  })
+  
+  // 监听窗口关闭事件
+  win.on('close', (event) => {
+    // 阻止窗口关闭，只是隐藏
+    event.preventDefault()
+    hideWindow()
   })
 
   // 监听窗口位置变化
@@ -638,6 +742,54 @@ async function createShareCardWindow(item: ClipboardItem) {
   }
 }
 
+// 显示窗口的智能方法
+async function showWindowIntelligently() {
+  if (!win) return
+  
+  try {
+    // 获取当前焦点应用信息
+    const focusedAppInfo = getFocusedAppInfo()
+    console.log('Current focused app:', focusedAppInfo)
+    
+    // 使用 showInactive 显示窗口但不激活
+    win.showInactive()
+    win.setAlwaysOnTop(true, 'floating')
+    
+    // 短暂延迟后才开始监听，确保窗口完全显示
+    setTimeout(() => {
+      if (win && win.isVisible()) {
+        startGlobalKeyboardListener()
+      }
+    }, 50)
+    
+  } catch (error) {
+    console.error('Error showing window intelligently:', error)
+    // 备用方案
+    win.showInactive()
+    win.setAlwaysOnTop(true, 'floating')
+    startGlobalKeyboardListener()
+  }
+}
+
+// 隐藏窗口的智能方法
+async function hideWindowIntelligently() {
+  if (!win) return
+  
+  try {
+    // 停止全局键盘监听
+    stopGlobalKeyboardListener()
+    
+    // 隐藏窗口
+    win.hide()
+    
+  } catch (error) {
+    console.error('Error hiding window intelligently:', error)
+    // 备用方案
+    stopGlobalKeyboardListener()
+    win.hide()
+  }
+}
+
 // 注册全局快捷键
 function registerGlobalShortcuts() {
   // 先取消注册所有快捷键
@@ -647,15 +799,9 @@ function registerGlobalShortcuts() {
   const shortcutRegistered = globalShortcut.register(currentShortcut, () => {
     if (win) {
       if (win.isVisible()) {
-        win.hide()
-        stopGlobalKeyboardListener()
+        hideWindowIntelligently()
       } else {
-        // Alfred 关键：显示但不激活，保持前台可交互
-        win.showInactive()
-        // 确保窗口在最前面但不获得系统焦点
-        win.setAlwaysOnTop(true, 'floating')
-        win.focus() // 内部焦点用于键盘事件
-        startGlobalKeyboardListener()
+        showWindowIntelligently()
       }
     }
   })
@@ -668,13 +814,9 @@ function registerGlobalShortcuts() {
   const altShortcutRegistered = globalShortcut.register('CommandOrControl+Alt+C', () => {
     if (win) {
       if (win.isVisible()) {
-        win.hide()
-        stopGlobalKeyboardListener()
+        hideWindowIntelligently()
       } else {
-        win.showInactive()
-        win.setAlwaysOnTop(true, 'floating')
-        win.focus()
-        startGlobalKeyboardListener()
+        showWindowIntelligently()
       }
     }
   })
@@ -719,7 +861,6 @@ function createTray() {
           } else {
             win.showInactive()
             win.setAlwaysOnTop(true, 'floating')
-            win.focus()
             startGlobalKeyboardListener()
           }
         }
@@ -764,13 +905,9 @@ function createTray() {
   tray.on('click', () => {
     if (win) {
       if (win.isVisible()) {
-        win.hide()
-        stopGlobalKeyboardListener()
+        hideWindowIntelligently()
       } else {
-        win.showInactive()
-        win.setAlwaysOnTop(true, 'floating')
-        win.focus()
-        startGlobalKeyboardListener()
+        showWindowIntelligently()
       }
     }
   })
@@ -991,16 +1128,14 @@ app.on('second-instance', () => {
   if (win) {
     // Show the main window if the user tried to open another
     if (win.isMinimized()) win.restore()
-    win.showInactive() // 使用showInactive()防止抢占焦点
-    startGlobalKeyboardListener()
+    showWindowIntelligently() // 使用智能显示方法
   }
 })
 
 app.on('activate', () => {
   const allWindows = BrowserWindow.getAllWindows()
   if (allWindows.length) {
-    allWindows[0].showInactive() // 使用showInactive()防止抢占焦点
-    startGlobalKeyboardListener()
+    showWindowIntelligently() // 使用智能显示方法
   } else {
     createWindow()
   }
@@ -1055,10 +1190,7 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
 })
 
 ipcMain.handle('window:hide', () => {
-  if (win) {
-    win.hide()
-    stopGlobalKeyboardListener()
-  }
+  hideWindowIntelligently()
   return true
 })
 
@@ -1407,6 +1539,81 @@ ipcMain.handle('clipboard:toggle-pin', async (_, itemId: string) => {
   } catch (error) {
     console.error('Failed to toggle pin:', error)
     return { success: false, error: '操作失败' }
+  }
+})
+
+// 新增的IPC处理器 - 支持渲染进程的全局键盘事件
+
+// 处理渲染进程的导航事件
+ipcMain.on('navigate-items', (event, direction: 'up' | 'down') => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log(`Navigate items: ${direction}`)
+})
+
+// 处理渲染进程的选择事件
+ipcMain.on('select-current-item', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Select current item')
+})
+
+// 处理渲染进程的删除事件
+ipcMain.on('delete-current-item', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Delete current item')
+})
+
+// 处理渲染进程的固定切换事件
+ipcMain.on('toggle-pin', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Toggle pin')
+})
+
+// 处理渲染进程的预览切换事件
+ipcMain.on('toggle-preview', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Toggle preview')
+})
+
+// 处理选择项目后的粘贴操作
+ipcMain.handle('clipboard:paste-selected-item', async (_, item: ClipboardItem) => {
+  console.log('Paste selected item:', item.id)
+  
+  try {
+    // 先隐藏窗口
+    if (win && win.isVisible()) {
+      hideWindowIntelligently()
+    }
+    
+    // 短暂延迟确保窗口完全隐藏且焦点回到原始应用
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // 将项目内容设置到剪贴板
+    isSettingClipboard = true
+    
+    if (item.type === 'image' && item.preview) {
+      const base64Data = item.preview.replace(/^data:image\/\w+;base64,/, '')
+      const imageBuffer = Buffer.from(base64Data, 'base64')
+      const nativeImage = require('electron').nativeImage.createFromBuffer(imageBuffer)
+      clipboard.writeImage(nativeImage)
+    } else {
+      clipboard.writeText(item.content)
+      lastClipboardContent = item.content
+    }
+    
+    // 模拟 Cmd+V 键盘事件
+    const keystrokeSuccess = simulatePasteKeystroke()
+    console.log('Keystroke simulation result:', keystrokeSuccess)
+    
+    // 延迟重置标记
+    setTimeout(() => {
+      isSettingClipboard = false
+    }, 500)
+    
+    return { success: true, method: 'enhanced-paste' }
+  } catch (error) {
+    console.error('Failed to paste selected item:', error)
+    isSettingClipboard = false
+    throw error
   }
 })
 
@@ -2435,7 +2642,7 @@ ipcMain.handle('accessibility:get-app-info', () => {
   }
 })
 
-// Enhanced paste functionality using accessibility API only (Alfred 风格)
+// Enhanced paste functionality using clipboard + keyboard simulation (Alfred 真实方法)
 ipcMain.handle('clipboard:paste-to-active-app-enhanced', async (_, text: string) => {
   console.log('Enhanced paste requested with text:', text.length > 50 ? text.substring(0, 50) + '...' : text)
   
@@ -2445,27 +2652,24 @@ ipcMain.handle('clipboard:paste-to-active-app-enhanced', async (_, text: string)
     stopGlobalKeyboardListener()
   }
   
-  // 让系统有机会切换焦点
-  
-  const hasPermission = checkAccessibilityPermission()
-  console.log('Accessibility permission status:', hasPermission)
-  
-  if (!hasPermission) {
-    throw new Error('Accessibility permission required')
+  try {
+    // 第二步：将文本放入系统剪贴板
+    clipboard.writeText(text)
+    console.log('Text written to clipboard')
+    
+    // 第三步：模拟 Cmd+V 键盘事件
+    const keystrokeSuccess = simulatePasteKeystroke()
+    console.log('Keystroke simulation result:', keystrokeSuccess)
+    
+    if (!keystrokeSuccess) {
+      throw new Error('Failed to simulate paste keystroke')
+    }
+    
+    return { success: true, method: 'keyboard-simulation' }
+  } catch (error) {
+    console.error('Enhanced paste failed:', error)
+    throw error
   }
-  
-  // 获取焦点应用信息进行调试
-  const focusedAppInfo = getFocusedAppInfo()
-  console.log('Focused app info:', focusedAppInfo)
-  
-  const success = insertTextToFocusedElement(text)
-  console.log('Text insertion result:', success)
-  
-  if (!success) {
-    throw new Error(`Failed to insert text using Accessibility API. App: ${focusedAppInfo.appName}, Has focus: ${focusedAppInfo.hasFocusedElement}`)
-  }
-  
-  return { success: true, method: 'accessibility' }
 })
 
 // 处理打开外部 URL 的请求

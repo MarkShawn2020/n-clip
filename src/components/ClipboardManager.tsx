@@ -100,8 +100,41 @@ export default function ClipboardManager() {
     resetSelectedIndex()
   }, [filteredItems.length, resetSelectedIndex])
 
-  // 键盘导航
+  // 全局键盘事件监听（替代原有的键盘导航）
   useEffect(() => {
+    // 监听主进程的全局键盘事件
+    window.clipboardAPI.onNavigateItems((direction: 'up' | 'down') => {
+      if (direction === 'down') {
+        setSelectedIndex(prev => Math.min(prev + 1, filteredItems.length - 1))
+      } else if (direction === 'up') {
+        setSelectedIndex(prev => Math.max(prev - 1, 0))
+      }
+    })
+    
+    window.clipboardAPI.onSelectCurrentItem(() => {
+      if (filteredItems[selectedIndex]) {
+        handleItemSelectAndClose(filteredItems[selectedIndex], selectedIndex)
+      }
+    })
+    
+    window.clipboardAPI.onDeleteCurrentItem(() => {
+      if (filteredItems[selectedIndex]) {
+        handleDeleteItem(filteredItems[selectedIndex].id)
+      }
+    })
+    
+    window.clipboardAPI.onTogglePin(() => {
+      if (filteredItems[selectedIndex]) {
+        handleTogglePin(filteredItems[selectedIndex].id)
+      }
+    })
+    
+    window.clipboardAPI.onTogglePreview(() => {
+      // 可以添加预览切换功能
+      console.log('Toggle preview')
+    })
+    
+    // 备用的本地键盘事件处理（为了兼容性）
     const handleKeyDown = (e: KeyboardEvent) => {
       // 忽略修饰键组合，避免冲突
       if (e.metaKey || e.ctrlKey || e.altKey) {
@@ -126,7 +159,11 @@ export default function ClipboardManager() {
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.clipboardAPI.removeGlobalKeyboardListeners()
+    }
   }, [filteredItems, selectedIndex])
 
   // 自动聚焦搜索框
@@ -149,31 +186,25 @@ export default function ClipboardManager() {
     }
   }
 
-  // 选择项目并关闭窗口
+  // 选择项目并关闭窗口（更新版本）
   const handleItemSelectAndClose = async (item: ClipboardItem, index: number) => {
     try {
       // 更新选中索引
       setSelectedIndex(index)
       
-      // 将内容复制到剪切板
-      await window.clipboardAPI.setClipboardContent(item)
-      console.log('Content copied to clipboard:', item.content)
-      
-      // 关键：先隐藏窗口，让焦点返回到原应用
-      window.windowAPI.hideWindow()
-      
-      // 使用增强的粘贴功能
-      const pasteResult = await window.clipboardAPI.pasteToActiveAppEnhanced(item.content)
+      // 使用新的粘贴选中项目方法
+      const pasteResult = await window.clipboardAPI.pasteSelectedItem(item)
       if (pasteResult.success) {
         console.log(`Content pasted to active app using ${pasteResult.method}`)
       } else {
         console.error('Failed to paste to active app:', pasteResult.error)
       }
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
+      console.error('Failed to paste selected item:', error)
     }
   }
 
+  
   // 获取项目图标
   const getItemIcon = (type: string) => {
     switch (type) {

@@ -19,6 +19,7 @@ interface AccessibilityModule {
     hasFocusedElement: boolean
     elementRole?: string
   }
+  simulatePasteKeystroke(): boolean
 }
 
 interface FocusedAppInfo {
@@ -86,6 +87,10 @@ export const insertTextToFocusedElement = (text: string): boolean => {
 
 export const getFocusedAppInfo = (): FocusedAppInfo => {
   return accessibilityModule.getFocusedAppInfo()
+}
+
+export const simulatePasteKeystroke = (): boolean => {
+  return accessibilityModule.simulatePasteKeystroke()
 }
 
 // 导出类型

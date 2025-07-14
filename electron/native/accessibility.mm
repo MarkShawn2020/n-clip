@@ -1,6 +1,7 @@
 #include <napi.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Carbon/Carbon.h>
 #include <string>
 #include <iostream>
 
@@ -147,47 +148,94 @@ Napi::Value InsertTextToFocusedElement(const Napi::CallbackInfo& info) {
         );
         
         if (textToInsert) {
-            // 方法1: 尝试直接设置文本值
-            error = AXUIElementSetAttributeValue(
+            // 获取元素类型以决定插入策略
+            CFTypeRef elementRole = NULL;
+            AXUIElementCopyAttributeValue(
                 (AXUIElementRef)focusedElement,
-                kAXValueAttribute,
-                textToInsert
+                kAXRoleAttribute,
+                &elementRole
             );
             
-            if (error == kAXErrorSuccess) {
-                success = true;
+            bool isTextArea = false;
+            if (elementRole) {
+                CFStringRef roleStr = (CFStringRef)elementRole;
+                isTextArea = CFStringCompare(roleStr, CFSTR("AXTextArea"), 0) == kCFCompareEqualTo;
+                CFRelease(elementRole);
+            }
+            
+            if (isTextArea) {
+                // 终端和文本区域的特殊处理
+                // 方法1: 尝试在当前光标位置插入文本
+                CFTypeRef currentValue = NULL;
+                AXError valueError = AXUIElementCopyAttributeValue(
+                    (AXUIElementRef)focusedElement,
+                    kAXValueAttribute,
+                    &currentValue
+                );
+                
+                if (valueError == kAXErrorSuccess && currentValue) {
+                    CFStringRef currentText = (CFStringRef)currentValue;
+                    CFMutableStringRef newText = CFStringCreateMutableCopy(
+                        kCFAllocatorDefault,
+                        0,
+                        currentText
+                    );
+                    
+                    if (newText) {
+                        // 获取插入点
+                        CFTypeRef insertionPoint = NULL;
+                        AXUIElementCopyAttributeValue(
+                            (AXUIElementRef)focusedElement,
+                            kAXInsertionPointLineNumberAttribute,
+                            &insertionPoint
+                        );
+                        
+                        // 在末尾添加文本
+                        CFStringAppend(newText, textToInsert);
+                        
+                        // 设置新的文本值
+                        error = AXUIElementSetAttributeValue(
+                            (AXUIElementRef)focusedElement,
+                            kAXValueAttribute,
+                            newText
+                        );
+                        
+                        success = (error == kAXErrorSuccess);
+                        
+                        if (insertionPoint) CFRelease(insertionPoint);
+                        CFRelease(newText);
+                    }
+                    CFRelease(currentValue);
+                }
+                
+                // 如果追加失败，尝试直接替换选中文本
+                if (!success) {
+                    error = AXUIElementSetAttributeValue(
+                        (AXUIElementRef)focusedElement,
+                        kAXSelectedTextAttribute,
+                        textToInsert
+                    );
+                    success = (error == kAXErrorSuccess);
+                }
             } else {
-                // 方法2: 尝试设置选中文本
+                // 普通文本字段的处理
+                // 方法1: 尝试直接设置文本值
                 error = AXUIElementSetAttributeValue(
                     (AXUIElementRef)focusedElement,
-                    kAXSelectedTextAttribute,
+                    kAXValueAttribute,
                     textToInsert
                 );
                 
                 if (error == kAXErrorSuccess) {
                     success = true;
                 } else {
-                    // 方法3: 尝试先选择全部，再替换
-                    CFRange selectAllRange = CFRangeMake(0, 999999);
-                    AXValueRef rangeValue = AXValueCreate(kAXValueTypeCFRange, &selectAllRange);
-                    
-                    if (rangeValue) {
-                        // 设置选择范围为全部
-                        AXUIElementSetAttributeValue(
-                            (AXUIElementRef)focusedElement,
-                            kAXSelectedTextRangeAttribute,
-                            rangeValue
-                        );
-                        CFRelease(rangeValue);
-                        
-                        // 再次尝试设置选中文本
-                        error = AXUIElementSetAttributeValue(
-                            (AXUIElementRef)focusedElement,
-                            kAXSelectedTextAttribute,
-                            textToInsert
-                        );
-                        success = (error == kAXErrorSuccess);
-                    }
+                    // 方法2: 尝试设置选中文本
+                    error = AXUIElementSetAttributeValue(
+                        (AXUIElementRef)focusedElement,
+                        kAXSelectedTextAttribute,
+                        textToInsert
+                    );
+                    success = (error == kAXErrorSuccess);
                 }
             }
             
@@ -353,6 +401,39 @@ Napi::Value GetFocusedAppInfo(const Napi::CallbackInfo& info) {
     return result;
 }
 
+// 模拟 Cmd+V 键盘事件
+Napi::Value SimulatePasteKeystroke(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    // 创建事件源
+    CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStatePrivate);
+    if (!source) {
+        return Napi::Boolean::New(env, false);
+    }
+    
+    // 创建 Cmd+V 按键事件
+    CGEventRef keyDownEvent = CGEventCreateKeyboardEvent(source, kVK_ANSI_V, true);
+    CGEventRef keyUpEvent = CGEventCreateKeyboardEvent(source, kVK_ANSI_V, false);
+    
+    if (keyDownEvent && keyUpEvent) {
+        // 设置 Command 修饰键
+        CGEventSetFlags(keyDownEvent, kCGEventFlagMaskCommand);
+        CGEventSetFlags(keyUpEvent, kCGEventFlagMaskCommand);
+        
+        // 发送按键事件
+        CGEventPost(kCGHIDEventTap, keyDownEvent);
+        CGEventPost(kCGHIDEventTap, keyUpEvent);
+        
+        // 清理资源
+        CFRelease(keyDownEvent);
+        CFRelease(keyUpEvent);
+    }
+    
+    CFRelease(source);
+    
+    return Napi::Boolean::New(env, true);
+}
+
 // 模块初始化
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("checkAccessibilityPermission", Napi::Function::New(env, CheckAccessibilityPermission));
@@ -360,6 +441,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("getFocusedElement", Napi::Function::New(env, GetFocusedElement));
     exports.Set("insertTextToFocusedElement", Napi::Function::New(env, InsertTextToFocusedElement));
     exports.Set("getFocusedAppInfo", Napi::Function::New(env, GetFocusedAppInfo));
+    exports.Set("simulatePasteKeystroke", Napi::Function::New(env, SimulatePasteKeystroke));
     
     return exports;
 }

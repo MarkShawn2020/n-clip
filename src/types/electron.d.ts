@@ -33,6 +33,15 @@ export interface ClipboardAPI {
   setStorageSettings: (settings: StorageSettings) => Promise<boolean>
   cleanupExpiredItems: () => Promise<boolean>
   clearHistory: () => Promise<boolean>
+  
+  // 新增：全局键盘事件支持
+  pasteSelectedItem: (item: ClipboardItem) => Promise<{ success: boolean; error?: string; method: string }>
+  onNavigateItems: (callback: (direction: 'up' | 'down') => void) => void
+  onSelectCurrentItem: (callback: () => void) => void
+  onDeleteCurrentItem: (callback: () => void) => void
+  onTogglePin: (callback: () => void) => void
+  onTogglePreview: (callback: () => void) => void
+  removeGlobalKeyboardListeners: () => void
 }
 
 export interface AccessibilityAPI {
@@ -66,6 +75,7 @@ export interface WindowAPI {
   getCurrentShortcut: () => Promise<string>
   testShortcut: (shortcut: string) => Promise<{ isRegistered: boolean; currentShortcut: string; canRegisterShortcuts: boolean; targetCanRegister: boolean }>
   updateGlobalShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
+  hideWindow: () => Promise<boolean>
 }
 
 declare global {

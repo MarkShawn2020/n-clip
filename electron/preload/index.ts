@@ -84,7 +84,40 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   cleanupExpiredItems: () => ipcRenderer.invoke('storage:cleanup-expired'),
   
   // 清空历史记录
-  clearHistory: () => ipcRenderer.invoke('clipboard:clear-history')
+  clearHistory: () => ipcRenderer.invoke('clipboard:clear-history'),
+  
+  // 新增：处理选中项目的粘贴
+  pasteSelectedItem: (item: any) => ipcRenderer.invoke('clipboard:paste-selected-item', item),
+  
+  // 新增：全局键盘事件监听
+  onNavigateItems: (callback: (direction: 'up' | 'down') => void) => {
+    ipcRenderer.on('navigate-items', (_, direction) => callback(direction))
+  },
+  
+  onSelectCurrentItem: (callback: () => void) => {
+    ipcRenderer.on('select-current-item', () => callback())
+  },
+  
+  onDeleteCurrentItem: (callback: () => void) => {
+    ipcRenderer.on('delete-current-item', () => callback())
+  },
+  
+  onTogglePin: (callback: () => void) => {
+    ipcRenderer.on('toggle-pin', () => callback())
+  },
+  
+  onTogglePreview: (callback: () => void) => {
+    ipcRenderer.on('toggle-preview', () => callback())
+  },
+  
+  // 移除全局键盘事件监听
+  removeGlobalKeyboardListeners: () => {
+    ipcRenderer.removeAllListeners('navigate-items')
+    ipcRenderer.removeAllListeners('select-current-item')
+    ipcRenderer.removeAllListeners('delete-current-item')
+    ipcRenderer.removeAllListeners('toggle-pin')
+    ipcRenderer.removeAllListeners('toggle-preview')
+  }
 })
 
 // --------- Expose accessibility API ---------

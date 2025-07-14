@@ -90,9 +90,142 @@ N-Clip is a modern clipboard manager built with Electron, React, and TypeScript.
 - Renderer process communicates via `window.clipboardAPI` and `window.windowAPI`
 - Settings API: getStorageSettings, setStorageSettings, cleanupExpiredItems, clearHistory
 
+### Alfred-Style Focus Management System
+
+**核心技术突破**: 实现了真正的Alfred风格无焦点抢夺交互
+
+#### 技术挑战
+在macOS应用开发中，实现类似Alfred的剪贴板管理器面临一个经典的焦点管理困境：
+- **接收用户输入需要窗口焦点** (键盘/鼠标交互)
+- **保持原始app焦点不变** (不中断用户工作流)
+
+这两个需求在传统窗口系统中是互斥的。
+
+#### 解决方案: 混合焦点管理
+
+##### 1. 智能窗口配置
+```typescript
+win = new BrowserWindow({
+  // Alfred风格：无窗口装饰但保持前台交互
+  frame: false,
+  transparent: true,
+  titleBarStyle: 'hidden',
+  hasShadow: false,
+  
+  // 关键：智能焦点管理配置
+  focusable: true,        // 允许接收键盘事件
+  acceptFirstMouse: false, // 防止意外点击激活
+  alwaysOnTop: true,      // 前台显示
+  skipTaskbar: true,      // 不在任务栏显示
+  
+  // 使用普通窗口类型避免panel冲突
+  visibleOnAllWorkspaces: true,
+  vibrancy: 'under-window'
+})
+```
+
+##### 2. 全局键盘事件监听
+```typescript
+// 真正的全局键盘监听实现
+function startGlobalKeyboardListener() {
+  const shortcuts = [
+    { key: 'Up', handler: () => navigateItems('up') },
+    { key: 'Down', handler: () => navigateItems('down') },
+    { key: 'Return', handler: () => selectCurrentItem() },
+    { key: 'Escape', handler: () => hideWindow() }
+  ]
+  
+  shortcuts.forEach(({ key, handler }) => {
+    globalShortcut.register(key, handler)
+  })
+}
+```
+
+##### 3. 智能窗口显示/隐藏
+```typescript
+// 显示窗口但不抢夺焦点
+async function showWindowIntelligently() {
+  // 获取当前焦点应用信息
+  const focusedAppInfo = getFocusedAppInfo()
+  
+  // 使用showInactive显示窗口但不激活
+  win.showInactive()
+  win.setAlwaysOnTop(true, 'floating')
+  
+  // 短暂延迟后启动全局键盘监听
+  setTimeout(() => {
+    if (win && win.isVisible()) {
+      startGlobalKeyboardListener()
+    }
+  }, 50)
+}
+```
+
+##### 4. 优化的粘贴流程
+```typescript
+// 选择项目并粘贴到原应用
+async function pasteSelectedItem(item: ClipboardItem) {
+  // 1. 立即隐藏窗口，让焦点回到原应用
+  hideWindowIntelligently()
+  
+  // 2. 短暂延迟确保焦点完全返回
+  await new Promise(resolve => setTimeout(resolve, 100))
+  
+  // 3. 设置剪贴板内容
+  if (item.type === 'image') {
+    clipboard.writeImage(nativeImage.createFromBuffer(imageBuffer))
+  } else {
+    clipboard.writeText(item.content)
+  }
+  
+  // 4. 模拟Cmd+V键盘事件
+  const keystrokeSuccess = simulatePasteKeystroke()
+  
+  return { success: true, method: 'enhanced-paste' }
+}
+```
+
+#### 技术架构
+
+**主进程 (Main Process)**:
+- 全局快捷键注册和监听
+- 窗口焦点状态管理
+- 辅助功能API调用
+- 键盘事件模拟
+
+**渲染进程 (Renderer Process)**:
+- 接收主进程发送的键盘事件
+- UI交互和状态更新
+- 备用的本地键盘事件处理
+
+**IPC通信**:
+```typescript
+// 主进程 -> 渲染进程
+win.webContents.send('navigate-items', direction)
+win.webContents.send('select-current-item')
+
+// 渲染进程 -> 主进程
+ipcRenderer.invoke('clipboard:paste-selected-item', item)
+```
+
+#### 关键文件
+- `electron/main/index.ts`: 智能窗口管理和全局键盘监听
+- `electron/preload/index.ts`: IPC桥接和事件代理
+- `src/components/ClipboardManager.tsx`: UI交互和渲染进程事件处理
+- `electron/native/accessibility.mm`: macOS辅助功能API集成
+
+#### 测试验证
+1. **焦点保持**: 在文本编辑器中，按快捷键唤起剪贴板，光标应该仍然闪烁
+2. **键盘交互**: 上下键导航，回车键选择，ESC键隐藏
+3. **鼠标交互**: 点击选择项目，不应抢夺原应用焦点
+4. **粘贴功能**: 选择项目后应该正确粘贴到原应用输入框
+
+**技术成果**: 实现了真正的Alfred风格用户体验，解决了桌面应用开发中的经典焦点管理难题。
+
 ### Global Shortcuts
 - Primary: `Cmd+Shift+C` (or `Cmd+Option+C`)
 - System tray integration for easy access
+- Global keyboard navigation: Up/Down/Enter/Escape/Tab/Delete/Space
 
 ## Build Configuration
 
