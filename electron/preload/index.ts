@@ -56,8 +56,15 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   // 删除项目
   deleteItem: (itemId: string) => ipcRenderer.invoke('clipboard:delete-item', itemId),
   
-  // 切换固定状态
-  togglePin: (itemId: string) => ipcRenderer.invoke('clipboard:toggle-pin', itemId),
+  // Star机制API
+  starItem: (itemId: string, category?: string, description?: string) => ipcRenderer.invoke('clipboard:star-item', itemId, category, description),
+  unstarItem: (itemId: string) => ipcRenderer.invoke('clipboard:unstar-item', itemId),
+  getStarredItems: (category?: string) => ipcRenderer.invoke('clipboard:get-starred-items', category),
+  getCategories: () => ipcRenderer.invoke('clipboard:get-categories'),
+  createCategory: (name: string, type: 'text' | 'image' | 'file' | 'mixed') => ipcRenderer.invoke('clipboard:create-category', name, type),
+  updateItemCategory: (itemId: string, categoryId: string) => ipcRenderer.invoke('clipboard:update-item-category', itemId, categoryId),
+  updateItemTags: (itemId: string, tags: string[]) => ipcRenderer.invoke('clipboard:update-item-tags', itemId, tags),
+  updateItemDescription: (itemId: string, description: string) => ipcRenderer.invoke('clipboard:update-item-description', itemId, description),
   
   // 生成分享卡片
   generateShareCard: (item: any, template?: string, ratio?: string) => ipcRenderer.invoke('clipboard:generate-share-card', item, template, ratio),
@@ -67,6 +74,9 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
 
   // 打开分享卡片窗口
   openShareCardWindow: (item: any) => ipcRenderer.invoke('share-card:open', item),
+  
+  // 打开档案库窗口
+  openArchiveWindow: () => ipcRenderer.invoke('archive:open'),
   
   // 移除剪切板监听
   removeClipboardListener: () => {
@@ -102,8 +112,12 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
     ipcRenderer.on('delete-current-item', () => callback())
   },
   
-  onTogglePin: (callback: () => void) => {
-    ipcRenderer.on('toggle-pin', () => callback())
+  onToggleStar: (callback: () => void) => {
+    ipcRenderer.on('toggle-star', () => callback())
+  },
+  
+  onOpenArchive: (callback: () => void) => {
+    ipcRenderer.on('open-archive', () => callback())
   },
   
   onTogglePreview: (callback: () => void) => {
@@ -115,7 +129,8 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
     ipcRenderer.removeAllListeners('navigate-items')
     ipcRenderer.removeAllListeners('select-current-item')
     ipcRenderer.removeAllListeners('delete-current-item')
-    ipcRenderer.removeAllListeners('toggle-pin')
+    ipcRenderer.removeAllListeners('toggle-star')
+    ipcRenderer.removeAllListeners('open-archive')
     ipcRenderer.removeAllListeners('toggle-preview')
   }
 })

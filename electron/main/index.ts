@@ -55,6 +55,7 @@ if (!app.requestSingleInstanceLock()) {
 let win: BrowserWindow | null = null
 let shareCardWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
+let archiveWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
@@ -68,7 +69,23 @@ interface ClipboardItem {
   timestamp: number
   size?: string
   expiryTime?: number // 过期时间戳
-  isPinned?: boolean // 是否固定
+  
+  // Star机制字段
+  isStarred?: boolean        // 是否被收藏到档案库
+  starredAt?: number         // 收藏时间戳
+  category?: string          // 用户自定义分类
+  tags?: string[]            // 标签系统
+  description?: string       // 用户备注
+}
+
+// 档案库分类结构
+interface ArchiveCategory {
+  id: string
+  name: string
+  type: 'text' | 'image' | 'file' | 'mixed'
+  itemCount: number
+  createdAt: number
+  updatedAt: number
 }
 
 // 存储有效期设置（毫秒）
@@ -106,6 +123,12 @@ function startGlobalMouseListener() {
     const { startGlobalMouseListener } = require('../../electron/native/build/Release/accessibility.node')
     
     startGlobalMouseListener((x: number, y: number) => {
+      // 如果正在创建窗口，忽略鼠标点击事件
+      if (isCreatingWindow) {
+        console.log(`Mouse click at ${x},${y} ignored - creating window`)
+        return
+      }
+      
       if (win && win.isVisible()) {
         const bounds = win.getBounds()
         
@@ -140,9 +163,42 @@ function stopGlobalMouseListener() {
   }
 }
 
+// 添加标志来暂时禁用自动隐藏
+let isCreatingWindow = false
+
+// 安全设置创建窗口标志
+function setCreatingWindow(creating: boolean) {
+  isCreatingWindow = creating
+  
+  if (creating) {
+    console.log('DEBUG: Setting isCreatingWindow = true')
+  } else {
+    console.log('DEBUG: Setting isCreatingWindow = false')
+  }
+}
+
 // 应用切换检测 - 使用原生app事件
 app.on('browser-window-focus', (event, window) => {
-  // 当任何其他应用获得焦点时，隐藏我们的窗口
+  console.log('DEBUG: browser-window-focus event', {
+    windowTitle: window?.getTitle() || 'unknown',
+    isOurWindow: window === win || window === settingsWindow || window === archiveWindow || window === shareCardWindow,
+    isCreatingWindow,
+    archiveWindowExists: !!archiveWindow
+  })
+  
+  // 如果正在创建窗口，暂时忽略焦点事件
+  if (isCreatingWindow) {
+    console.log('Currently creating window, ignoring focus event')
+    return
+  }
+  
+  // 忽略我们自己的窗口获得焦点的情况
+  if (window === win || window === settingsWindow || window === archiveWindow || window === shareCardWindow) {
+    console.log('Our own window gained focus, ignoring auto-hide')
+    return
+  }
+  
+  // 当其他应用或窗口获得焦点时，隐藏我们的主窗口
   if (win && win.isVisible()) {
     console.log('Other app gained focus, hiding clipboard window')
     hideWindowIntelligently()
@@ -169,7 +225,8 @@ function startGlobalKeyboardListener() {
     { key: 'Return', handler: () => selectCurrentItem() },
     { key: 'Escape', handler: () => hideWindow() },
     { key: 'Delete', handler: () => deleteCurrentItem() },
-    { key: 'Space', handler: () => togglePin() }
+    { key: 's', handler: () => toggleStar() },    // S键：Star/Unstar
+    { key: 'a', handler: () => openArchive() }    // A键：打开档案库
   ]
   
   shortcuts.forEach(({ key, handler }) => {
@@ -241,50 +298,34 @@ function deleteCurrentItem() {
   }
 }
 
-// 切换固定状态
-function togglePin() {
+// 切换Star状态
+function toggleStar() {
   if (win && win.isVisible()) {
-    win.webContents.send('toggle-pin')
+    win.webContents.send('toggle-star')
   }
 }
 
-// 辅助函数：正确插入项目到历史记录，保持固定项目在顶部
+// 打开档案库
+function openArchive() {
+  if (win && win.isVisible()) {
+    win.webContents.send('open-archive')
+  }
+}
+
+// 辅助函数：插入项目到历史记录（简化版）
 function insertItemIntoHistory(newItem: ClipboardItem) {
-  // 如果新项目是固定的，直接添加到最前面
-  if (newItem.isPinned) {
-    clipboardHistory.unshift(newItem)
-    return
-  }
-  
-  // 找到第一个非固定项目的位置
-  let insertIndex = 0
-  while (insertIndex < clipboardHistory.length && clipboardHistory[insertIndex].isPinned) {
-    insertIndex++
-  }
-  
-  // 在正确位置插入新项目
-  clipboardHistory.splice(insertIndex, 0, newItem)
+  // 直接插入到开头，按时间排序
+  clipboardHistory.unshift(newItem)
 }
 
-// 辅助函数：移动现有项目到正确位置，保持固定项目在顶部
+// 辅助函数：移动现有项目到前面（简化版）
 function moveItemToFront(item: ClipboardItem) {
   const currentIndex = clipboardHistory.indexOf(item)
   if (currentIndex > 0) {
     // 移除当前位置的项目
     clipboardHistory.splice(currentIndex, 1)
-    
-    // 如果项目是固定的，移到最前面
-    if (item.isPinned) {
-      clipboardHistory.unshift(item)
-    } else {
-      // 找到第一个非固定项目的位置
-      let insertIndex = 0
-      while (insertIndex < clipboardHistory.length && clipboardHistory[insertIndex].isPinned) {
-        insertIndex++
-      }
-      // 插入到正确位置
-      clipboardHistory.splice(insertIndex, 0, item)
-    }
+    // 移到最前面
+    clipboardHistory.unshift(item)
   }
 }
 
@@ -358,7 +399,7 @@ async function initDatabase() {
       
       console.log('Database opened successfully')
       
-      // 创建表
+      // 创建剪切板项目表
       db!.run(`
         CREATE TABLE IF NOT EXISTS clipboard_items (
           id TEXT PRIMARY KEY,
@@ -368,26 +409,113 @@ async function initDatabase() {
           timestamp INTEGER NOT NULL,
           size TEXT,
           expiry_time INTEGER,
-          is_pinned INTEGER DEFAULT 0
+          is_starred INTEGER DEFAULT 0,
+          starred_at INTEGER,
+          category TEXT DEFAULT 'default',
+          tags TEXT,
+          description TEXT
         )
       `, (err) => {
         if (err) {
-          console.error('Failed to create table:', err)
+          console.error('Failed to create clipboard_items table:', err)
           reject(err)
-        } else {
-          console.log('Table created successfully')
+          return
+        }
+        
+        console.log('clipboard_items table created successfully')
+        
+        // 创建档案库分类表
+        db!.run(`
+          CREATE TABLE IF NOT EXISTS archive_categories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            item_count INTEGER DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        `, (categoryErr) => {
+          if (categoryErr) {
+            console.error('Failed to create archive_categories table:', categoryErr)
+            reject(categoryErr)
+            return
+          }
           
-          // 检查并添加is_pinned列（用于数据库迁移）
-          db!.run(`
-            ALTER TABLE clipboard_items ADD COLUMN is_pinned INTEGER DEFAULT 0
-          `, (alterErr) => {
-            if (alterErr && !alterErr.message.includes('duplicate column name')) {
-              console.error('Failed to add is_pinned column:', alterErr)
-            } else {
-              console.log('Database migration completed')
-            }
-            resolve()
+          console.log('archive_categories table created successfully')
+          
+          // 数据库迁移：添加新字段
+          const migrations = [
+            'ALTER TABLE clipboard_items ADD COLUMN is_starred INTEGER DEFAULT 0', 
+            'ALTER TABLE clipboard_items ADD COLUMN starred_at INTEGER',
+            'ALTER TABLE clipboard_items ADD COLUMN category TEXT DEFAULT "default"',
+            'ALTER TABLE clipboard_items ADD COLUMN tags TEXT',
+            'ALTER TABLE clipboard_items ADD COLUMN description TEXT'
+          ]
+          
+          let migrationsCompleted = 0
+          const totalMigrations = migrations.length
+          
+          migrations.forEach((migration, index) => {
+            db!.run(migration, (migrationErr) => {
+              if (migrationErr && !migrationErr.message.includes('duplicate column name')) {
+                console.error(`Migration ${index + 1} failed:`, migrationErr)
+              } else {
+                console.log(`Migration ${index + 1} completed`)
+              }
+              
+              migrationsCompleted++
+              if (migrationsCompleted === totalMigrations) {
+                // 初始化默认分类
+                initDefaultCategories().then(() => {
+                  console.log('Database initialization completed')
+                  resolve()
+                }).catch(reject)
+              }
+            })
           })
+        })
+      })
+    })
+  })
+}
+
+// 初始化默认分类
+async function initDefaultCategories(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    const now = Date.now()
+    const defaultCategories = [
+      { id: 'text-default', name: '文本笔记', type: 'text' },
+      { id: 'text-code', name: '代码片段', type: 'text' },
+      { id: 'image-screenshots', name: '截图收藏', type: 'image' },
+      { id: 'image-designs', name: '设计素材', type: 'image' },
+      { id: 'file-documents', name: '文档资料', type: 'file' },
+      { id: 'file-configs', name: '配置文件', type: 'file' },
+      { id: 'mixed-favorites', name: '我的收藏', type: 'mixed' }
+    ]
+    
+    let categoriesProcessed = 0
+    const totalCategories = defaultCategories.length
+    
+    defaultCategories.forEach((category) => {
+      db!.run(`
+        INSERT OR IGNORE INTO archive_categories 
+        (id, name, type, item_count, created_at, updated_at)
+        VALUES (?, ?, ?, 0, ?, ?)
+      `, [category.id, category.name, category.type, now, now], (err) => {
+        if (err) {
+          console.error(`Failed to insert category ${category.name}:`, err)
+        } else {
+          console.log(`Default category ${category.name} initialized`)
+        }
+        
+        categoriesProcessed++
+        if (categoriesProcessed === totalCategories) {
+          resolve()
         }
       })
     })
@@ -404,8 +532,8 @@ async function saveClipboardItem(item: ClipboardItem): Promise<void> {
     
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO clipboard_items 
-      (id, type, content, preview, timestamp, size, expiry_time, is_pinned) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (id, type, content, preview, timestamp, size, expiry_time, is_starred, starred_at, category, tags, description) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     
     stmt.run([
@@ -416,7 +544,11 @@ async function saveClipboardItem(item: ClipboardItem): Promise<void> {
       item.timestamp,
       item.size || null,
       item.expiryTime || null,
-      item.isPinned ? 1 : 0
+      item.isStarred ? 1 : 0,
+      item.starredAt || null,
+      item.category || 'default',
+      item.tags ? JSON.stringify(item.tags) : null,
+      item.description || null
     ], (err) => {
       if (err) {
         console.error('Failed to save clipboard item:', err)
@@ -447,11 +579,11 @@ async function loadClipboardHistory(): Promise<ClipboardItem[]> {
       }
     })
     
-    // 加载有效项目，固定项目排在前面
+    // 加载有效项目，按时间排序
     db.all(`
       SELECT * FROM clipboard_items 
       WHERE expiry_time IS NULL OR expiry_time > ?
-      ORDER BY is_pinned DESC, timestamp DESC
+      ORDER BY timestamp DESC
       LIMIT 1000
     `, [now], (err, rows: any[]) => {
       if (err) {
@@ -468,7 +600,11 @@ async function loadClipboardHistory(): Promise<ClipboardItem[]> {
         timestamp: row.timestamp,
         size: row.size,
         expiryTime: row.expiry_time,
-        isPinned: row.is_pinned === 1
+        isStarred: row.is_starred === 1,
+        starredAt: row.starred_at,
+        category: row.category || 'default',
+        tags: row.tags ? JSON.parse(row.tags) : [],
+        description: row.description
       }))
       
       resolve(items)
@@ -555,9 +691,8 @@ async function createWindow() {
     fullscreenable: false,
     show: false,
     // 关键：Alfred风格焦点管理配置
-    focusable: false, // 永不获得焦点
+    focusable: true, // 允许接收键盘事件
     acceptFirstMouse: false, // 防止点击激活
-    type: 'panel', // 使用panel类型，macOS上不会获得焦点
     // 使用普通窗口类型避免 panel 冲突
     // visibleOnAllWorkspaces: true, // 注释掉，因为TypeScript类型不支持
     vibrancy: 'under-window',
@@ -583,14 +718,13 @@ async function createWindow() {
     win.loadFile(indexHtml)
   }
 
-  // Show window when ready - 不自动显示
+  // Show window when ready - Alfred 风格，等待用户触发
   win.once('ready-to-show', () => {
-    // 不自动显示，等待用户触发
     console.log('Window ready to show')
+    // Alfred 风格：不自动显示，等待快捷键触发
   })
   
-  // 注意：由于窗口设置为 focusable: false 和 type: 'panel'，
-  // 窗口永远不会获得焦点，完全符合Alfred风格
+  // 注意：窗口配置为 Alfred 风格，支持键盘交互但避免不必要的焦点抢夺
   
   
   // 监听窗口关闭事件
@@ -667,6 +801,14 @@ let settingsWindowBounds = {
   y: 100,
   width: 800,
   height: 600
+}
+
+// 档案库窗口位置存储
+let archiveWindowBounds = {
+  x: 200,
+  y: 100,
+  width: 900,
+  height: 700
 }
 
 // 当前快捷键设置
@@ -765,6 +907,10 @@ async function openSettingsWindow() {
     return
   }
 
+  // 设置标志防止自动隐藏
+  setCreatingWindow(true)
+  console.log('DEBUG: Starting to create settings window')
+
   settingsWindow = new BrowserWindow({
     title: 'NClip 设置',
     x: settingsWindowBounds.x,
@@ -798,6 +944,9 @@ async function openSettingsWindow() {
   // 显示窗口
   settingsWindow.once('ready-to-show', () => {
     settingsWindow?.show()
+    console.log('DEBUG: Settings window shown, clearing isCreatingWindow flag')
+    // 窗口已准备好显示，立即清理创建标志
+    setCreatingWindow(false)
   })
 
   // 窗口加载完成后，请求渲染进程提供保存的位置
@@ -834,10 +983,128 @@ async function openSettingsWindow() {
   // 窗口关闭时清理引用
   settingsWindow.on('closed', () => {
     settingsWindow = null
+    // 确保清理标志
+    setCreatingWindow(false)
+    console.log('DEBUG: Settings window closed, clearing isCreatingWindow flag')
   })
 
   // 阻止外部链接在设置窗口中打开
   settingsWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https:')) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+}
+
+// 打开档案库窗口
+async function openArchiveWindow() {
+  console.log('=== DEBUG: openArchiveWindow() START ===')
+  
+  // 如果窗口已存在，聚焦到该窗口
+  if (archiveWindow) {
+    console.log('DEBUG: Archive window already exists, focusing...')
+    archiveWindow.focus()
+    console.log('DEBUG: Archive window focused, bounds:', archiveWindow.getBounds())
+    return
+  }
+
+  console.log('DEBUG: No existing archive window, creating new one...')
+  
+  // 设置标志防止自动隐藏
+  setCreatingWindow(true)
+  console.log('DEBUG: Set creating window flag, starting BrowserWindow creation...')
+
+  try {
+    console.log('DEBUG: Creating BrowserWindow with bounds:', archiveWindowBounds)
+    archiveWindow = new BrowserWindow({
+      title: 'NClip 档案库',
+      x: archiveWindowBounds.x,
+      y: archiveWindowBounds.y,
+      width: archiveWindowBounds.width,
+      height: archiveWindowBounds.height,
+      minWidth: 800,
+      minHeight: 600,
+      frame: true,
+      transparent: false,
+      resizable: true,
+      alwaysOnTop: false,
+      skipTaskbar: false,
+      show: false,
+      icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
+      webPreferences: {
+        preload,
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+      autoHideMenuBar: true,
+    })
+    
+    console.log('DEBUG: BrowserWindow created successfully, ID:', archiveWindow.id)
+    
+    // 加载档案库页面
+    console.log('DEBUG: Loading archive page...')
+    if (VITE_DEV_SERVER_URL) {
+      const url = VITE_DEV_SERVER_URL + '#archive'
+      console.log('DEBUG: Loading URL:', url)
+      await archiveWindow.loadURL(url)
+    } else {
+      console.log('DEBUG: Loading file with hash: archive')
+      await archiveWindow.loadFile(indexHtml, { hash: 'archive' })
+    }
+    
+    console.log('DEBUG: Archive page loaded successfully')
+    
+    // 直接显示窗口，避免ready-to-show事件不可靠的问题
+    console.log('DEBUG: Showing archive window directly after load')
+    archiveWindow.show()
+    console.log('DEBUG: Archive window show() called, isVisible:', archiveWindow?.isVisible())
+    console.log('DEBUG: Archive window bounds after show:', archiveWindow?.getBounds())
+    
+    // 清理创建标志
+    setCreatingWindow(false)
+    console.log('DEBUG: Archive window creation completed, isCreatingWindow flag cleared')
+  } catch (error) {
+    console.error('DEBUG: Error creating or loading archive window:', error)
+    // 清理状态
+    setCreatingWindow(false)
+    if (archiveWindow) {
+      archiveWindow.destroy()
+      archiveWindow = null
+    }
+    throw error
+  }
+  
+  console.log('=== DEBUG: openArchiveWindow() END ===')
+
+  // 监听窗口位置变化
+  archiveWindow.on('moved', () => {
+    if (archiveWindow) {
+      const bounds = archiveWindow.getBounds()
+      archiveWindowBounds = bounds
+      // 保存窗口位置设置
+      saveWindowSettings()
+    }
+  })
+
+  // 监听窗口大小变化
+  archiveWindow.on('resized', () => {
+    if (archiveWindow) {
+      const bounds = archiveWindow.getBounds()
+      archiveWindowBounds = bounds
+      // 保存窗口位置设置
+      saveWindowSettings()
+    }
+  })
+
+  // 窗口关闭时清理引用
+  archiveWindow.on('closed', () => {
+    archiveWindow = null
+    // 确保清理标志
+    setCreatingWindow(false)
+    console.log('DEBUG: Archive window closed, clearing isCreatingWindow flag')
+  })
+
+  // 阻止外部链接在档案库窗口中打开
+  archiveWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https:')) shell.openExternal(url)
     return { action: 'deny' }
   })
@@ -1070,6 +1337,12 @@ function createTray() {
       }
     },
     {
+      label: 'Archive',
+      click: async () => {
+        await openArchiveWindow()
+      }
+    },
+    {
       label: 'Clear History',
       click: () => {
         clipboardHistory = []
@@ -1241,12 +1514,8 @@ async function loadClipboardHistoryFromDB() {
   try {
     clipboardHistory = await loadClipboardHistory()
     
-    // 确保加载的数据正确排序：置顶项目在前
-    clipboardHistory.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1
-      if (!a.isPinned && b.isPinned) return 1
-      return b.timestamp - a.timestamp
-    })
+    // 简单按时间排序，star状态的排序由前端atoms处理
+    clipboardHistory.sort((a, b) => b.timestamp - a.timestamp)
     
     console.log(`Loaded ${clipboardHistory.length} clipboard items from database (${clipboardHistory.filter(item => item.isPinned).length} pinned)`)
   } catch (error) {
@@ -1395,10 +1664,8 @@ ipcMain.handle('clipboard:set-content', (_, item: ClipboardItem) => {
       lastClipboardContent = item.content
     }
     
-    // 延迟重置标记，给剪切板一些时间更新
-    setTimeout(() => {
-      isSettingClipboard = false
-    }, 500)
+    // 剪切板操作完成，立即重置标记
+    isSettingClipboard = false
     
     return true
   } catch (error) {
@@ -1426,6 +1693,39 @@ ipcMain.handle('window:set-bounds', (_, bounds: WindowBounds) => {
 ipcMain.handle('window:hide', () => {
   hideWindowIntelligently()
   return true
+})
+
+// 打开档案库窗口
+ipcMain.handle('archive:open', async () => {
+  console.log('=== DEBUG: IPC archive:open received ===')
+  console.log('DEBUG: Current state:', {
+    archiveWindowExists: !!archiveWindow,
+    isCreatingWindow: isCreatingWindow
+  })
+  
+  try {
+    // 立即隐藏剪切板窗口
+    if (win && win.isVisible()) {
+      console.log('DEBUG: Hiding clipboard window before opening archive')
+      await hideWindowIntelligently()
+    }
+    
+    console.log('DEBUG: Calling openArchiveWindow()...')
+    await openArchiveWindow()
+    console.log('DEBUG: openArchiveWindow() completed successfully')
+    
+    console.log('DEBUG: Final archive window state:', {
+      archiveWindowExists: !!archiveWindow,
+      isVisible: archiveWindow?.isVisible() || false,
+      bounds: archiveWindow?.getBounds() || null
+    })
+    
+    return { success: true }
+  } catch (error) {
+    console.error('DEBUG: Exception in archive:open handler:', error)
+    console.error('DEBUG: Error stack:', error instanceof Error ? error.stack : 'No stack')
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
 })
 
 // 设置窗口位置相关 IPC
@@ -1529,7 +1829,7 @@ ipcMain.handle('shortcuts:test-shortcut', (_, shortcut: string) => {
   console.log('当前应用已注册的快捷键:')
   const testShortcuts = [
     'CommandOrControl+Shift+C',
-    'CommandOrControl+Shift+V', 
+    'CommandOrControl+Shift+C', 
     'CommandOrControl+Alt+C',
     shortcut
   ]
@@ -1737,46 +2037,262 @@ ipcMain.handle('clipboard:clear-history', async () => {
   }
 })
 
-// 切换项目固定状态
-ipcMain.handle('clipboard:toggle-pin', async (_, itemId: string) => {
+// ===== Star机制相关API =====
+
+// Star项目到档案库
+ipcMain.handle('clipboard:star-item', async (_, itemId: string, category?: string, description?: string) => {
   try {
     const item = clipboardHistory.find(item => item.id === itemId)
-    if (!item) return false
-    
-    const newPinState = !item.isPinned
-    
-    // 如果要固定项目，检查固定数量限制
-    if (newPinState) {
-      const pinnedCount = clipboardHistory.filter(item => item.isPinned).length
-      if (pinnedCount >= 3) {
-        return { success: false, error: '最多只能固定3个项目' }
-      }
+    if (!item) {
+      return { success: false, error: 'Item not found' }
     }
     
-    // 更新内存中的状态
-    item.isPinned = newPinState
+    if (item.isStarred) {
+      return { success: false, error: 'Item already starred' }
+    }
     
-    // 更新数据库
+    // 更新项目状态
+    item.isStarred = true
+    item.starredAt = Date.now()
+    item.category = category || 'mixed-favorites'
+    if (description) {
+      item.description = description
+    }
+    
+    // 保存到数据库
     await saveClipboardItem(item)
     
-    // 重新排序：固定项目排在前面
-    clipboardHistory.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1
-      if (!a.isPinned && b.isPinned) return 1
-      return b.timestamp - a.timestamp
-    })
+    // 更新分类计数
+    await updateCategoryItemCount(item.category)
     
-    // 通知渲染进程更新
-    if (win) {
-      win.webContents.send('clipboard:history-updated', clipboardHistory)
-    }
-    
-    return { success: true, isPinned: newPinState }
+    console.log(`Item ${itemId} starred to category: ${item.category}`)
+    return { success: true }
   } catch (error) {
-    console.error('Failed to toggle pin:', error)
-    return { success: false, error: '操作失败' }
+    console.error('Failed to star item:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 })
+
+// Unstar项目从档案库
+ipcMain.handle('clipboard:unstar-item', async (_, itemId: string) => {
+  try {
+    const item = clipboardHistory.find(item => item.id === itemId)
+    if (!item) {
+      return { success: false, error: 'Item not found' }
+    }
+    
+    if (!item.isStarred) {
+      return { success: false, error: 'Item not starred' }
+    }
+    
+    const oldCategory = item.category
+    
+    // 更新项目状态
+    item.isStarred = false
+    item.starredAt = undefined
+    item.category = 'default'
+    item.description = undefined
+    
+    // 保存到数据库
+    await saveClipboardItem(item)
+    
+    // 更新分类计数
+    if (oldCategory) {
+      await updateCategoryItemCount(oldCategory)
+    }
+    
+    console.log(`Item ${itemId} unstarred`)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to unstar item:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 获取已收藏的项目
+ipcMain.handle('clipboard:get-starred-items', async (_, category?: string) => {
+  try {
+    const starredItems = clipboardHistory.filter(item => {
+      if (!item.isStarred) return false
+      if (category && item.category !== category) return false
+      return true
+    })
+    
+    // 按收藏时间排序
+    starredItems.sort((a, b) => (b.starredAt || 0) - (a.starredAt || 0))
+    
+    return starredItems
+  } catch (error) {
+    console.error('Failed to get starred items:', error)
+    return []
+  }
+})
+
+// 获取所有分类
+ipcMain.handle('clipboard:get-categories', async () => {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    db.all('SELECT * FROM archive_categories ORDER BY created_at ASC', (err, rows: any[]) => {
+      if (err) {
+        console.error('Failed to get categories:', err)
+        reject(err)
+        return
+      }
+      
+      const categories = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        itemCount: row.item_count,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }))
+      
+      resolve(categories)
+    })
+  })
+})
+
+// 创建新分类
+ipcMain.handle('clipboard:create-category', async (_, name: string, type: 'text' | 'image' | 'file' | 'mixed') => {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    const categoryId = `${type}-${Date.now()}`
+    const now = Date.now()
+    
+    db.run(`
+      INSERT INTO archive_categories 
+      (id, name, type, item_count, created_at, updated_at)
+      VALUES (?, ?, ?, 0, ?, ?)
+    `, [categoryId, name, type, now, now], (err) => {
+      if (err) {
+        console.error('Failed to create category:', err)
+        resolve({ success: false, error: err.message })
+      } else {
+        console.log(`Category ${name} created with id: ${categoryId}`)
+        resolve({ success: true, categoryId })
+      }
+    })
+  })
+})
+
+// 更新项目分类
+ipcMain.handle('clipboard:update-item-category', async (_, itemId: string, categoryId: string) => {
+  try {
+    const item = clipboardHistory.find(item => item.id === itemId)
+    if (!item) {
+      return { success: false, error: 'Item not found' }
+    }
+    
+    const oldCategory = item.category
+    item.category = categoryId
+    
+    // 保存到数据库
+    await saveClipboardItem(item)
+    
+    // 更新分类计数
+    if (oldCategory) {
+      await updateCategoryItemCount(oldCategory)
+    }
+    await updateCategoryItemCount(categoryId)
+    
+    console.log(`Item ${itemId} moved to category: ${categoryId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update item category:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 更新项目标签
+ipcMain.handle('clipboard:update-item-tags', async (_, itemId: string, tags: string[]) => {
+  try {
+    const item = clipboardHistory.find(item => item.id === itemId)
+    if (!item) {
+      return { success: false, error: 'Item not found' }
+    }
+    
+    item.tags = tags
+    
+    // 保存到数据库
+    await saveClipboardItem(item)
+    
+    console.log(`Item ${itemId} tags updated:`, tags)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update item tags:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 更新项目描述
+ipcMain.handle('clipboard:update-item-description', async (_, itemId: string, description: string) => {
+  try {
+    const item = clipboardHistory.find(item => item.id === itemId)
+    if (!item) {
+      return { success: false, error: 'Item not found' }
+    }
+    
+    item.description = description
+    
+    // 保存到数据库
+    await saveClipboardItem(item)
+    
+    console.log(`Item ${itemId} description updated`)
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update item description:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 更新分类项目计数的辅助函数
+async function updateCategoryItemCount(categoryId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'))
+      return
+    }
+    
+    // 计算该分类下的项目数量
+    db.get(`
+      SELECT COUNT(*) as count 
+      FROM clipboard_items 
+      WHERE category = ? AND is_starred = 1
+    `, [categoryId], (err, row: any) => {
+      if (err) {
+        console.error(`Failed to count items for category ${categoryId}:`, err)
+        reject(err)
+        return
+      }
+      
+      const count = row.count || 0
+      
+      // 更新分类表中的计数
+      db!.run(`
+        UPDATE archive_categories 
+        SET item_count = ?, updated_at = ? 
+        WHERE id = ?
+      `, [count, Date.now(), categoryId], (updateErr) => {
+        if (updateErr) {
+          console.error(`Failed to update category ${categoryId} count:`, updateErr)
+          reject(updateErr)
+        } else {
+          console.log(`Category ${categoryId} count updated to ${count}`)
+          resolve()
+        }
+      })
+    })
+  })
+}
 
 // 新增的IPC处理器 - 支持渲染进程的全局键盘事件
 
@@ -1798,16 +2314,22 @@ ipcMain.on('delete-current-item', (event) => {
   console.log('Delete current item')
 })
 
-// 处理渲染进程的固定切换事件
-ipcMain.on('toggle-pin', (event) => {
-  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
-  console.log('Toggle pin')
-})
-
 // 处理渲染进程的预览切换事件
 ipcMain.on('toggle-preview', (event) => {
   // 这个事件由主进程的全局快捷键触发，发送给渲染进程
   console.log('Toggle preview')
+})
+
+// 处理渲染进程的Star切换事件
+ipcMain.on('toggle-star', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Toggle star')
+})
+
+// 处理渲染进程的档案库打开事件
+ipcMain.on('open-archive', (event) => {
+  // 这个事件由主进程的全局快捷键触发，发送给渲染进程
+  console.log('Open archive')
 })
 
 // 处理选择项目后的粘贴操作
@@ -1815,13 +2337,10 @@ ipcMain.handle('clipboard:paste-selected-item', async (_, item: ClipboardItem) =
   console.log('Paste selected item:', item.id)
   
   try {
-    // 先隐藏窗口
+    // 先隐藏窗口并等待完成
     if (win && win.isVisible()) {
-      hideWindowIntelligently()
+      await hideWindowIntelligently()
     }
-    
-    // 短暂延迟确保窗口完全隐藏且焦点回到原始应用
-    await new Promise(resolve => setTimeout(resolve, 100))
     
     // 将项目内容设置到剪贴板
     isSettingClipboard = true
@@ -1840,10 +2359,8 @@ ipcMain.handle('clipboard:paste-selected-item', async (_, item: ClipboardItem) =
     const keystrokeSuccess = simulatePasteKeystroke()
     console.log('Keystroke simulation result:', keystrokeSuccess)
     
-    // 延迟重置标记
-    setTimeout(() => {
-      isSettingClipboard = false
-    }, 500)
+    // 粘贴操作完成，立即重置标记
+    isSettingClipboard = false
     
     return { success: true, method: 'enhanced-paste' }
   } catch (error) {
@@ -1920,6 +2437,12 @@ ipcMain.handle('clipboard:generate-share-card', async (_, item: ClipboardItem, t
 ipcMain.handle('share-card:open', async (_, item: ClipboardItem) => {
   try {
     console.log('IPC: Opening share card window for item:', item.type, item.id)
+    
+    // 立即隐藏剪切板窗口
+    if (win && win.isVisible()) {
+      console.log('DEBUG: Hiding clipboard window before opening share card')
+      await hideWindowIntelligently()
+    }
     
     // 如果窗口已经存在且未销毁，先关闭它
     if (shareCardWindow && !shareCardWindow.isDestroyed()) {

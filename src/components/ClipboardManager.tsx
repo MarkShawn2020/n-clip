@@ -6,6 +6,8 @@ import {
   searchQueryAtom, 
   selectedIndexAtom, 
   filteredItemsAtom,
+  mainHistoryItemsAtom,
+  starredItemsAtom,
   windowPositionAtom,
   resetSelectedIndexAtom
 } from '../store/atoms'
@@ -24,18 +26,14 @@ export default function ClipboardManager() {
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [hasAccessibilityPermission, setHasAccessibilityPermission] = useState(false)
 
+
   // 加载剪切板历史和检查权限
   useEffect(() => {
     const loadClipboardHistory = async () => {
       try {
         const history = await window.clipboardAPI.getClipboardHistory()
-        // 确保初始加载的数据也正确排序
-        const sortedHistory = [...history].sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1
-          if (!a.isPinned && b.isPinned) return 1
-          return b.timestamp - a.timestamp
-        })
-        setItems(sortedHistory)
+        // 直接设置历史数据，排序由atoms处理
+        setItems(history)
       } catch (error) {
         console.error('Failed to load clipboard history:', error)
       }
@@ -66,25 +64,15 @@ export default function ClipboardManager() {
     // 监听剪切板变化
     window.clipboardAPI.onClipboardChange((newItem: ClipboardItem) => {
       setItems(prev => {
-        // 添加新项目并立即排序：置顶项目永远在前
-        const newItems = [newItem, ...prev]
-        return newItems.sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1
-          if (!a.isPinned && b.isPinned) return 1
-          return b.timestamp - a.timestamp
-        })
+        // 添加新项目，排序由atoms处理
+        return [newItem, ...prev]
       })
     })
     
     // 监听剪切板历史更新
     window.clipboardAPI.onClipboardHistoryUpdate((history: ClipboardItem[]) => {
-      // 确保接收到的历史数据也正确排序
-      const sortedHistory = [...history].sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1
-        if (!a.isPinned && b.isPinned) return 1
-        return b.timestamp - a.timestamp
-      })
-      setItems(sortedHistory)
+      // 直接设置历史数据，排序由atoms处理
+      setItems(history)
     })
     
     return () => {
@@ -142,10 +130,16 @@ export default function ClipboardManager() {
       }
     })
     
-    window.clipboardAPI.onTogglePin(() => {
+    
+    window.clipboardAPI.onToggleStar(() => {
       if (filteredItems[selectedIndex]) {
-        handleTogglePin(filteredItems[selectedIndex])
+        handleToggleStar(filteredItems[selectedIndex])
       }
+    })
+    
+    window.clipboardAPI.onOpenArchive(() => {
+      console.log('Global shortcut A pressed - opening archive')
+      handleOpenArchive()
     })
     
     return () => {
@@ -192,11 +186,18 @@ export default function ClipboardManager() {
           e.preventDefault()
           handleDeleteItem(filteredItems[selectedIndex])
         }
-      } else if (e.key === ' ') {
-        // 只有当焦点不在搜索框时才切换固定状态
+      } else if (e.key === 's' || e.key === 'S') {
+        // S键：Star/Unstar当前项目
         if (document.activeElement !== searchInputRef.current && filteredItems[selectedIndex]) {
           e.preventDefault()
-          handleTogglePin(filteredItems[selectedIndex])
+          handleToggleStar(filteredItems[selectedIndex])
+        }
+      } else if (e.key === 'a' || e.key === 'A') {
+        // A键：打开档案库窗口
+        if (document.activeElement !== searchInputRef.current) {
+          e.preventDefault()
+          console.log('DEBUG: A key pressed, opening archive window')
+          handleOpenArchive()
         }
       } else if (e.key === 'Tab') {
         // Tab键可以用于切换预览或其他功能
@@ -319,35 +320,74 @@ export default function ClipboardManager() {
     }
   }
 
-  // 切换固定状态
-  const handleTogglePin = async (item: ClipboardItem) => {
-    try {
-      // 添加动画类
-      const itemElement = document.querySelector(`[data-item-id="${item.id}"]`)
-      if (itemElement) {
-        itemElement.classList.add('pin-animating')
-        setTimeout(() => {
-          itemElement.classList.remove('pin-animating')
-        }, 400)
-      }
 
-      const result = await window.clipboardAPI.togglePin(item.id)
-      if (result.success) {
-        // 更新本地状态
-        setItems(prev => prev.map(i => 
-          i.id === item.id ? { ...i, isPinned: result.isPinned } : i
-        ).sort((a, b) => {
-          // 重新排序：固定项目在前
-          if (a.isPinned && !b.isPinned) return -1
-          if (!a.isPinned && b.isPinned) return 1
-          return b.timestamp - a.timestamp
-        }))
-      } else if (result.error) {
-        console.warn('Pin toggle failed:', result.error)
-        // 可以在这里显示错误提示
+  // 打开档案库
+  const handleOpenArchive = async () => {
+    console.log('=== DEBUG: handleOpenArchive START ===')
+    try {
+      console.log('DEBUG: About to call window.clipboardAPI.openArchiveWindow()')
+      
+      if (!window.clipboardAPI) {
+        console.error('DEBUG: window.clipboardAPI is not available!')
+        return
+      }
+      
+      if (!window.clipboardAPI.openArchiveWindow) {
+        console.error('DEBUG: window.clipboardAPI.openArchiveWindow is not available!')
+        return
+      }
+      
+      console.log('DEBUG: API is available, making call...')
+      const result = await window.clipboardAPI.openArchiveWindow()
+      console.log('DEBUG: Archive window API result:', result)
+      
+      if (result && result.success) {
+        console.log('DEBUG: Archive window opened successfully!')
+      } else if (result && !result.success) {
+        console.error('DEBUG: Archive window failed to open:', result.error)
+      } else {
+        console.warn('DEBUG: Unexpected result format:', result)
       }
     } catch (error) {
-      console.error('Failed to toggle pin:', error)
+      console.error('DEBUG: Exception in handleOpenArchive:', error)
+      console.error('DEBUG: Error stack:', error instanceof Error ? error.stack : 'No stack')
+    }
+    console.log('=== DEBUG: handleOpenArchive END ===')
+  }
+
+  // Star/Unstar项目
+  const handleToggleStar = async (item: ClipboardItem) => {
+    try {
+      if (item.isStarred) {
+        // Unstar项目
+        const result = await window.clipboardAPI.unstarItem(item.id)
+        if (result.success) {
+          setItems(prev => prev.map(i => 
+            i.id === item.id ? { ...i, isStarred: false, starredAt: undefined, category: 'default' } : i
+          ))
+          console.log('Item unstarred successfully')
+        } else {
+          console.error('Failed to unstar item:', result.error)
+        }
+      } else {
+        // Star项目 - 使用默认分类
+        const result = await window.clipboardAPI.starItem(item.id, 'mixed-favorites')
+        if (result.success) {
+          setItems(prev => prev.map(i => 
+            i.id === item.id ? { 
+              ...i, 
+              isStarred: true, 
+              starredAt: Date.now(), 
+              category: 'mixed-favorites' 
+            } : i
+          ))
+          console.log('Item starred successfully')
+        } else {
+          console.error('Failed to star item:', result.error)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle star:', error)
     }
   }
 
@@ -408,6 +448,7 @@ export default function ClipboardManager() {
   // 获取当前选中项目
   const selectedItem = filteredItems[selectedIndex]
 
+
   return (
     <div className="clipboard-manager">
       <div className="header">
@@ -429,6 +470,15 @@ export default function ClipboardManager() {
             className="search-input"
           />
         </div>
+        <div className="header-actions">
+          <button
+            className="archive-btn"
+            onClick={handleOpenArchive}
+            title="打开档案库 (A键)"
+          >
+            📚 档案库
+          </button>
+        </div>
       </div>
       
       <div className="main-content">
@@ -438,7 +488,7 @@ export default function ClipboardManager() {
               <div
                 key={item.id}
                 data-item-id={item.id}
-                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isPinned ? 'pinned' : ''}`}
+                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isStarred ? 'starred' : ''}`}
                 onClick={() => handleItemSelectAndClose(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
                 onContextMenu={(e) => handleContextMenu(e, item)}
@@ -467,8 +517,8 @@ export default function ClipboardManager() {
                   </div>
                 </div>
                 <div className="item-meta">
-                  {item.isPinned && (
-                    <div className="item-pin-indicator">📌</div>
+                  {item.isStarred && (
+                    <div className="item-star-indicator">⭐</div>
                   )}
                   <div className="item-shortcut">
                     {getShortcutKey(index)}
@@ -500,11 +550,11 @@ export default function ClipboardManager() {
                 <div className="preview-actions">
                   <div className="action-buttons">
                     <button 
-                      className="action-btn pin-btn"
-                      onClick={() => handleTogglePin(selectedItem)}
-                      title={selectedItem.isPinned ? "取消固定" : "固定项目"}
+                      className="action-btn star-btn"
+                      onClick={() => handleToggleStar(selectedItem)}
+                      title={selectedItem.isStarred ? "取消收藏" : "收藏到档案库 (S键)"}
                     >
-                      {selectedItem.isPinned ? '📌' : '📍'}
+                      {selectedItem.isStarred ? '⭐' : '☆'}
                     </button>
                     <button 
                       className="action-btn share-btn"

@@ -2,6 +2,7 @@ import { Provider } from 'jotai'
 import ClipboardManager from './components/ClipboardManager'
 import ShareCardWindow from './components/ShareCardWindow'
 import SettingsWindow from './components/SettingsWindow'
+import ArchiveLibrary from './components/ArchiveLibrary'
 import './App.css'
 
 function App() {
@@ -9,6 +10,8 @@ function App() {
   const currentHash = window.location.hash
   const isShareCardWindow = currentHash === '#share-card'
   const isSettingsWindow = currentHash === '#settings'
+  const isArchiveWindow = currentHash === '#archive'
+
 
   return (
     <Provider>
@@ -16,6 +19,8 @@ function App() {
         <ShareCardWindow />
       ) : isSettingsWindow ? (
         <SettingsWindow />
+      ) : isArchiveWindow ? (
+        <ArchiveLibrary />
       ) : (
         <div className='App'>
           <ClipboardManager />

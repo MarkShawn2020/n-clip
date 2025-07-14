@@ -24,6 +24,9 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
     min-height: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     -webkit-app-region: drag; /* 头部区域可拖拽移动窗口 */
 }
 
@@ -53,6 +56,33 @@
 
 .search-input::placeholder {
     color: #999;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    -webkit-app-region: no-drag; /* 按钮区域不能拖拽 */
+}
+
+.archive-btn {
+    background: none;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.archive-btn:hover {
+    background: rgba(0, 122, 255, 0.1);
+    border-color: #007AFF;
+    color: #007AFF;
 }
 
 /* 主要内容区域 */
@@ -384,6 +414,37 @@
 .pin-btn:hover {
     background: rgba(99, 102, 241, 0.1);
     border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-1px);
+}
+
+.star-btn {
+    color: #f59e0b;
+    position: relative;
+    overflow: hidden;
+}
+
+.star-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(245, 158, 11, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.3s ease, height 0.3s ease;
+    z-index: 0;
+}
+
+.star-btn:hover::before {
+    width: 100%;
+    height: 100%;
+}
+
+.star-btn:hover {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
     transform: translateY(-1px);
 }
 

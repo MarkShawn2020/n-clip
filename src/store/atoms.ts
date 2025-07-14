@@ -42,14 +42,46 @@ export interface ClipboardItem {
   preview?: string
   timestamp: number
   size?: string
-  isPinned?: boolean
+  
+  // Star机制字段
+  isStarred?: boolean        // 是否被收藏到档案库
+  starredAt?: number         // 收藏时间戳
+  category?: string          // 用户自定义分类
+  tags?: string[]            // 标签系统
+  description?: string       // 用户备注
 }
 
 export const clipboardItemsAtom = atom<ClipboardItem[]>([])
 
-// 过滤后的项目（派生状态）
-export const filteredItemsAtom = atom((get) => {
+// 主历史项目（非star项目）- 保持纯净的FIFO
+export const mainHistoryItemsAtom = atom((get) => {
   const items = get(clipboardItemsAtom)
+  
+  // 只显示未收藏的项目，严格按时间倒序
+  return items
+    .filter(item => !item.isStarred)
+    .sort((a, b) => b.timestamp - a.timestamp)
+})
+
+// 档案库项目（star项目）- 按分类和收藏时间排序
+export const starredItemsAtom = atom((get) => {
+  const items = get(clipboardItemsAtom)
+  
+  // 只显示已收藏的项目
+  return items
+    .filter(item => item.isStarred)
+    .sort((a, b) => {
+      // 先按分类，再按收藏时间
+      if (a.category !== b.category) {
+        return (a.category || '').localeCompare(b.category || '')
+      }
+      return (b.starredAt || 0) - (a.starredAt || 0)
+    })
+})
+
+// 过滤后的项目（派生状态）- 基于主历史
+export const filteredItemsAtom = atom((get) => {
+  const items = get(mainHistoryItemsAtom)
   const query = get(searchQueryAtom)
   
   if (!query.trim()) {
