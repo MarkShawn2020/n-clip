@@ -80,6 +80,7 @@ jobs:
       
     - name: Install app dependencies for Electron
       run: pnpm exec electron-builder install-app-deps
+      timeout-minutes: 10
         
     - name: Install system dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -95,6 +96,7 @@ jobs:
       
     - name: Build Electron app
       run: pnpm run dist
+      timeout-minutes: 15
       env:
         # macOS code signing
         CSC_LINK: ${{ secrets.CSC_LINK }}

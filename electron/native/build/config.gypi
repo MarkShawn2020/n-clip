@@ -486,15 +486,13 @@
     "nodedir": "/Users/mark/Library/Caches/node-gyp/24.1.0",
     "python": "/opt/homebrew/anaconda3/bin/python3",
     "standalone_static_library": 1,
-    "global_prefix": "/opt/homebrew",
-    "local_prefix": "/Users/mark/projects/n-clip/electron/native",
-    "globalconfig": "/opt/homebrew/etc/npmrc",
-    "init_module": "/Users/mark/.npm-init.js",
-    "userconfig": "/Users/mark/.npmrc",
-    "npm_version": "11.3.0",
-    "node_gyp": "/opt/homebrew/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js",
-    "cache": "/Users/mark/.npm",
-    "user_agent": "npm/11.3.0 node/v24.1.0 darwin arm64 workspaces/false",
-    "prefix": "/opt/homebrew"
+    "shamefully_hoist": "true",
+    "registry": "https://registry.npmjs.org/",
+    "verify_deps_before_run": "false",
+    "frozen_lockfile": "",
+    "_jsr_registry": "https://npm.jsr.io/",
+    "store_dir": "/Users/mark/Library/pnpm/store/v10",
+    "ignore_scripts": "",
+    "user_agent": "pnpm/10.12.1 npm/? node/v20.11.1 darwin arm64"
   }
 }

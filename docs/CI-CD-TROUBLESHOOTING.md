@@ -38,6 +38,7 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - node-gyp配置问题
 - 平台特定的代码在错误的平台上构建
 - Python distutils模块在新版本中被移除
+- N-API版本不兼容（sqlite3等依赖不支持新版本Electron）
 
 **解决方案**:
 - ✅ 已修复: 为所有平台添加Python 3.11环境（避免distutils问题）
@@ -49,6 +50,8 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - ✅ 已修复: CI环境中手动运行electron-builder install-app-deps（在Python设置后）
 - ✅ 已修复: 配置electron-builder跳过自动重建依赖
 - ✅ 已修复: 改用分离架构构建避免universal二进制文件冲突
+- ✅ 已修复: 移除未使用的sqlite3依赖（解决N-API版本不兼容）
+- ✅ 已修复: 移除不必要的@electron/rebuild依赖
 
 ### 4. YAML语法错误
 
@@ -136,7 +139,23 @@ ELIFECYCLE Command failed with exit code 1
 - ✅ 已修复: 在CI中手动运行electron-builder install-app-deps（在Python设置后）
 - ✅ 已修复: 本地环境仍然使用postinstall自动重建依赖
 
-### 10. 测试失败
+### 10. N-API版本不兼容和构建超时
+
+**错误信息**:
+```
+prebuild-install warn This package does not support N-API version 36
+prebuild-install http request GET https://github.com/TryGhost/node-sqlite3/releases/download/v5.1.7/sqlite3-v5.1.7-napi-v36-darwin-x64.tar.gz
+prebuild-install http 404 https://github.com/TryGhost/node-sqlite3/releases/download/v5.1.7/sqlite3-v5.1.7-napi-v36-darwin-x64.tar.gz
+Error: Process completed with exit code 1
+```
+
+**解决方案**:
+- ✅ 已修复: 移除了未使用的sqlite3依赖（应用实际使用JSON文件存储）
+- ✅ 已修复: 移除了不必要的@electron/rebuild依赖
+- ✅ 已修复: 添加CI步骤超时配置防止挂起
+- ✅ 已修复: 现在只有canvas作为唯一的原生依赖，兼容性更好
+
+### 11. 测试失败
 
 **错误信息**:
 ```

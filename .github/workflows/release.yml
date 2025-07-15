@@ -67,9 +67,11 @@ jobs:
       
     - name: Install app dependencies for Electron
       run: pnpm exec electron-builder install-app-deps
+      timeout-minutes: 10
       
     - name: Build and publish releases
       run: pnpm run build
+      timeout-minutes: 15
       env:
         # macOS code signing
         CSC_LINK: ${{ secrets.CSC_LINK }}
