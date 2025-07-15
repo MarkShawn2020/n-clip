@@ -1,0 +1,120 @@
+name: Version Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 8
+        
+    - name: Install dependencies
+      run: pnpm install
+      
+    - name: Configure git
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        
+    - name: Bump version
+      id: version
+      run: |
+        if [ "${{ github.event.inputs.version_type }}" = "prerelease" ]; then
+          NEW_VERSION=$(npm version prerelease --preid=beta --no-git-tag-version)
+        else
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
+        fi
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "version_number=${NEW_VERSION#v}" >> $GITHUB_OUTPUT
+        
+    - name: Update CHANGELOG
+      run: |
+        DATE=$(date '+%Y-%m-%d')
+        VERSION="${{ steps.version.outputs.version_number }}"
+        
+        # Create or update CHANGELOG.md
+        if [ ! -f CHANGELOG.md ]; then
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+        fi
+        
+        # Add new version entry
+        sed -i "1a\\
+\\
+## [$VERSION] - $DATE\\
+\\
+### Added\\
+- New features and improvements\\
+\\
+### Changed\\
+- Updated dependencies\\
+\\
+### Fixed\\
+- Bug fixes and stability improvements\\
+" CHANGELOG.md
+        
+    - name: Commit changes
+      run: |
+        git add package.json CHANGELOG.md
+        git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+        git tag ${{ steps.version.outputs.new_version }}
+        
+    - name: Push changes
+      run: |
+        git push origin main
+        git push origin ${{ steps.version.outputs.new_version }}
+        
+    - name: Create GitHub Release
+      uses: ncipollo/create-release@v1
+      with:
+        tag: ${{ steps.version.outputs.new_version }}
+        name: Release ${{ steps.version.outputs.new_version }}
+        body: |
+          ## Changes in ${{ steps.version.outputs.new_version }}
+          
+          Please see the [CHANGELOG](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed information.
+          
+          ### Downloads
+          
+          - **macOS**: Download the `.dmg` file for easy installation
+          - **Windows**: Download the `.exe` installer  
+          - **Linux**: Download the `.AppImage` or `.deb` file
+          
+          ### Installation
+          
+          1. Download the appropriate file for your operating system
+          2. Run the installer or mount the disk image
+          3. Follow the installation prompts
+          
+          ### Auto-updater
+          
+          The application includes an auto-updater that will notify you when new versions are available.
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.new_version, 'beta') }}
+        token: ${{ secrets.GITHUB_TOKEN }}

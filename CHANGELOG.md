@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Enhanced archive library with content type separation
+- Waterfall layout for image content using react-masonry-css
+- Specialized layouts for different content types (text, audio, video)
+- Content type navigation and filtering
+- GitHub Actions CI/CD pipeline for automated releases
+- Multi-platform build support (macOS, Windows, Linux)
+- Automated version management workflow
+- Code signing and notarization for macOS
+- Auto-updater integration
+
+### Changed
+- Improved TypeScript type definitions
+- Updated dependency versions
+- Enhanced build process with native module support
+
+### Fixed
+- All TypeScript compilation errors
+- Type safety improvements across the codebase
+- Better error handling in API calls
+
 ## [1.2.0] - 2025-07-14
 
 ### 🔥 Major Technical Breakthrough

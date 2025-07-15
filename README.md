@@ -52,6 +52,46 @@ pnpm dev
 pnpm build
 ```
 
+## 🔄 CI/CD 和发布
+
+### 自动化发布流程
+
+该项目配置了完整的GitHub Actions CI/CD流程，支持：
+
+- **多平台构建**: macOS、Windows、Linux
+- **自动化测试**: TypeScript检查、单元测试
+- **代码签名**: macOS和Windows代码签名
+- **自动发布**: 基于git标签的自动发布
+
+### 发布新版本
+
+1. **使用发布脚本**（推荐）:
+   ```sh
+   pnpm release
+   ```
+
+2. **手动发布**:
+   ```sh
+   # 更新版本号
+   pnpm version patch|minor|major
+   
+   # 推送到GitHub
+   git push origin main --tags
+   ```
+
+3. **GitHub Actions发布**:
+   - 进入GitHub仓库的Actions页面
+   - 选择"Version Management"工作流
+   - 手动触发并选择版本类型
+
+### 构建输出
+
+- **macOS**: `.dmg` 安装包和 `.zip` 压缩包
+- **Windows**: `.exe` 安装程序和 `.zip` 压缩包  
+- **Linux**: `.AppImage` 和 `.deb` 包
+
+更多详情请参考 [CI/CD 文档](./docs/CICD.md)。
+
 ## 🎮 使用方法
 
 1. **启动应用** - 应用会在系统托盘中运行

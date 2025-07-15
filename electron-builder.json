@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.neurora.n-clip",
+  "productName": "N-Clip",
   "asar": true,
   "directories": {
     "output": "release/${version}"
@@ -9,33 +10,75 @@
     "dist-electron",
     "dist"
   ],
+  "extraFiles": [
+    {
+      "from": "electron/native/build/Release",
+      "to": "native",
+      "filter": ["**/*"]
+    }
+  ],
   "mac": {
-    "artifactName": "${productName}_${version}.${ext}",
+    "category": "public.app-category.productivity",
     "target": [
-      "dmg",
-      "zip"
-    ]
+      {
+        "target": "dmg",
+        "arch": ["universal"]
+      },
+      {
+        "target": "zip",
+        "arch": ["universal"]
+      }
+    ],
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "icon": "public/icon.icns",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist"
   },
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": [
-          "x64"
-        ]
+        "arch": ["x64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64"]
       }
     ],
-    "artifactName": "${productName}_${version}.${ext}"
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "icon": "public/icon.ico"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "artifactName": "${productName}_${version}_${arch}.${ext}",
+    "icon": "public/icon.png",
+    "category": "Utility"
   },
   "nsis": {
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
   },
-  "publish": {
-    "provider": "generic",
-    "channel": "latest",
-    "url": "https://github.com/electron-vite/electron-vite-react/releases/download/v0.9.9/"
-  }
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "mark",
+      "repo": "n-clip",
+      "releaseType": "release"
+    }
+  ]
 }
