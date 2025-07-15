@@ -42,14 +42,13 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
       
-    - name: Install native dependencies
-      run: pnpm run install:native
-      
-    - name: Setup Python for native modules (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Setup Python for native modules
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.11'
+        
+    - name: Install native dependencies
+      run: pnpm run install:native
         
     - name: Install system dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'

@@ -3,6 +3,7 @@
   "appId": "com.neurora.n-clip",
   "productName": "N-Clip",
   "asar": true,
+  "buildDependenciesFromSource": false,
   "directories": {
     "output": "release/${version}"
   },

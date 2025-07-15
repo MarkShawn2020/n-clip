@@ -37,13 +37,16 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - 系统依赖缺失
 - node-gyp配置问题
 - 平台特定的代码在错误的平台上构建
+- Python distutils模块在新版本中被移除
 
 **解决方案**:
-- ✅ 已修复: 为Ubuntu添加Python 3.x环境
+- ✅ 已修复: 为所有平台添加Python 3.11环境（避免distutils问题）
 - ✅ 已修复: 安装必要的系统依赖包
 - ✅ 已修复: 添加平台特定的依赖安装步骤
 - ✅ 已修复: 为accessibility模块添加平台特定的构建配置
 - ✅ 已修复: 创建非macOS平台的stub实现
+- ✅ 已修复: 添加@electron/rebuild来正确重建Electron原生模块
+- ✅ 已修复: 配置electron-builder跳过自动重建依赖
 
 ### 4. YAML语法错误
 
