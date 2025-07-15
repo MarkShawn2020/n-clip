@@ -8,12 +8,14 @@
 ```
 Error: Dependencies lock file is not found in /home/runner/work/n-clip/n-clip. 
 Supported file patterns: package-lock.json,npm-shrinkwrap.json,yarn.lock
+Will run Yarn commands in directory "."
 ```
 
 **解决方案**:
 - ✅ 已修复: 移除了Node.js setup中的`cache: 'npm'`配置
 - ✅ 已修复: 使用pnpm专用的缓存配置
 - ✅ 已修复: 所有脚本改为使用pnpm而非npm
+- ✅ 已修复: 替换samuelmeuli/action-electron-builder为直接使用pnpm build命令
 
 ### 2. PNPM锁定文件缺失
 

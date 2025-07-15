@@ -14,7 +14,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm run build:native && tsc && vite build && electron-builder",
+    "build": "pnpm run build:native && tsc && vite build && electron-builder --publish=always",
     "build:native": "cd electron/native && node-gyp rebuild",
     "install:native": "cd electron/native && npm install",
     "preview": "vite preview",

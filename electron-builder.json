@@ -76,7 +76,7 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "mark",
+      "owner": "MarkShawn2020",
       "repo": "n-clip",
       "releaseType": "release"
     }

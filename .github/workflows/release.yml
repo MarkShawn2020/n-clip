@@ -66,13 +66,8 @@ jobs:
     - name: Build native modules
       run: pnpm run build:native
       
-    - name: Publish releases
-      uses: samuelmeuli/action-electron-builder@v1
-      with:
-        github_token: ${{ secrets.github_token }}
-        release: true
-        max_attempts: 3
-        args: --publish always
+    - name: Build and publish releases
+      run: pnpm run build
       env:
         # macOS code signing
         CSC_LINK: ${{ secrets.CSC_LINK }}
