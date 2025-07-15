@@ -199,7 +199,27 @@ Error: The operation was canceled.
 - ✅ 已修复: 添加continue-on-error=true避免整个workflow失败
 - ✅ 已修复: 添加构建产物大小诊断信息
 
-### 13. 测试失败
+### 13. 代码签名配置错误
+
+**错误信息**:
+```
+empty password will be used for code signing  reason=CSC_KEY_PASSWORD is not defined
+⨯ /Users/runner/work/n-clip/n-clip not a file
+```
+
+**原因分析**:
+- CI环境中代码签名证书配置不正确
+- 对于PR构建和CI测试，代码签名不是必需的
+- 签名配置错误导致electron-builder失败
+
+**解决方案**:
+- ✅ 已修复: 在CI配置文件中禁用代码签名（identity: null）
+- ✅ 已修复: 设置hardenedRuntime: false跳过macOS强化运行时
+- ✅ 已修复: 设置CSC_IDENTITY_AUTO_DISCOVERY: false禁用自动发现
+- ✅ 已修复: 移除CI工作流中的签名相关环境变量
+- ✅ 已修复: 生产发布时仍然使用完整的签名配置
+
+### 14. 测试失败
 
 **错误信息**:
 ```
