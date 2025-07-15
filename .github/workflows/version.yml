@@ -77,19 +77,21 @@ jobs:
         fi
         
         # Add new version entry
-        sed -i "1a\\
-\\
-## [$VERSION] - $DATE\\
-\\
-### Added\\
-- New features and improvements\\
-\\
-### Changed\\
-- Updated dependencies\\
-\\
-### Fixed\\
-- Bug fixes and stability improvements\\
-" CHANGELOG.md
+        {
+          echo ""
+          echo "## [$VERSION] - $DATE"
+          echo ""
+          echo "### Added"
+          echo "- New features and improvements"
+          echo ""
+          echo "### Changed"
+          echo "- Updated dependencies"
+          echo ""
+          echo "### Fixed"
+          echo "- Bug fixes and stability improvements"
+          echo ""
+          cat CHANGELOG.md
+        } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
         
     - name: Commit changes
       run: |
