@@ -34,11 +34,14 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - Python环境缺失
 - 系统依赖缺失
 - node-gyp配置问题
+- 平台特定的代码在错误的平台上构建
 
 **解决方案**:
 - ✅ 已修复: 为Ubuntu添加Python 3.x环境
 - ✅ 已修复: 安装必要的系统依赖包
 - ✅ 已修复: 添加平台特定的依赖安装步骤
+- ✅ 已修复: 为accessibility模块添加平台特定的构建配置
+- ✅ 已修复: 创建非macOS平台的stub实现
 
 ### 4. YAML语法错误
 

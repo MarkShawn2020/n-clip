@@ -2,9 +2,6 @@
   "targets": [
     {
       "target_name": "accessibility",
-      "sources": [
-        "accessibility.mm"
-      ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
@@ -17,19 +14,30 @@
       "cflags_cc!": [
         "-fno-exceptions"
       ],
-      "xcode_settings": {
-        "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
-        "CLANG_CXX_LIBRARY": "libc++",
-        "MACOSX_DEPLOYMENT_TARGET": "10.15"
-      },
-      "link_settings": {
-        "libraries": [
-          "-framework ApplicationServices",
-          "-framework CoreFoundation"
-        ]
-      },
       "conditions": [
         ['OS=="mac"', {
+          "sources": [
+            "accessibility.mm"
+          ],
+          "xcode_settings": {
+            "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
+            "CLANG_CXX_LIBRARY": "libc++",
+            "MACOSX_DEPLOYMENT_TARGET": "10.15"
+          },
+          "link_settings": {
+            "libraries": [
+              "-framework ApplicationServices",
+              "-framework CoreFoundation"
+            ]
+          },
+          "defines": [
+            "NAPI_DISABLE_CPP_EXCEPTIONS"
+          ]
+        }],
+        ['OS!="mac"', {
+          "sources": [
+            "accessibility-stub.cpp"
+          ],
           "defines": [
             "NAPI_DISABLE_CPP_EXCEPTIONS"
           ]
