@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   // Star机制API
   starItem: (itemId: string, category?: string, description?: string) => ipcRenderer.invoke('clipboard:star-item', itemId, category, description),
   unstarItem: (itemId: string) => ipcRenderer.invoke('clipboard:unstar-item', itemId),
+  isItemStarred: (itemId: string) => ipcRenderer.invoke('clipboard:is-item-starred', itemId),
   getStarredItems: (category?: string) => ipcRenderer.invoke('clipboard:get-starred-items', category),
   getCategories: () => ipcRenderer.invoke('clipboard:get-categories'),
   createCategory: (name: string, type: 'text' | 'image' | 'file' | 'mixed') => ipcRenderer.invoke('clipboard:create-category', name, type),
@@ -98,9 +99,6 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   
   // 新增：处理选中项目的粘贴
   pasteSelectedItem: (item: any) => ipcRenderer.invoke('clipboard:paste-selected-item', item),
-  
-  // 检查项目是否已收藏
-  isItemStarred: (itemId: string) => ipcRenderer.invoke('clipboard:is-item-starred', itemId),
   
   // 新增：全局键盘事件监听
   onNavigateItems: (callback: (direction: 'up' | 'down') => void) => {

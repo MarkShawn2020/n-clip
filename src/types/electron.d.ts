@@ -38,13 +38,14 @@ export interface ClipboardAPI {
   onClipboardChange: (callback: (content: ClipboardItem) => void) => void
   onClipboardHistoryUpdate: (callback: (history: ClipboardItem[]) => void) => void
   removeClipboardListener: () => void
-  deleteItem: (itemId: string) => Promise<boolean>
+  deleteItem: (itemId: string) => Promise<{ success: boolean; error?: string }>
   
   // Star机制API（替代pin机制）
   starItem: (itemId: string, category?: string, description?: string) => Promise<{ success: boolean; error?: string }>
   unstarItem: (itemId: string) => Promise<{ success: boolean; error?: string }>
-  getStarredItems: (category?: string) => Promise<ClipboardItem[]>
-  getCategories: () => Promise<ArchiveCategory[]>
+  isItemStarred: (itemId: string) => Promise<{ success: boolean; isStarred: boolean }>
+  getStarredItems: (category?: string) => Promise<{ success: boolean; items: ClipboardItem[] }>
+  getCategories: () => Promise<{ success: boolean; categories: ArchiveCategory[] }>
   createCategory: (name: string, type: 'text' | 'image' | 'file' | 'mixed') => Promise<{ success: boolean; categoryId?: string; error?: string }>
   updateItemCategory: (itemId: string, categoryId: string) => Promise<{ success: boolean; error?: string }>
   updateItemTags: (itemId: string, tags: string[]) => Promise<{ success: boolean; error?: string }>

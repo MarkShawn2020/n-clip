@@ -44,13 +44,13 @@ export default function ArchiveLibrary({ onClose }: ArchiveLibraryProps) {
       try {
         // 加载分类数据
         const categoriesResult = await window.clipboardAPI.getCategories()
-        if (categoriesResult.success) {
+        if (categoriesResult && categoriesResult.success) {
           setCategories(categoriesResult.categories)
         }
         
         // 加载收藏项目数据
         const itemsResult = await window.clipboardAPI.getStarredItems()
-        if (itemsResult.success) {
+        if (itemsResult && itemsResult.success) {
           setStarredItems(itemsResult.items)
           console.log('DEBUG: Loaded starred items:', itemsResult.items)
         }
@@ -89,7 +89,7 @@ export default function ArchiveLibrary({ onClose }: ArchiveLibraryProps) {
 
   const handleItemClick = async (item: EnhancedClipboardItem) => {
     try {
-      await window.clipboardAPI.setClipboardContent(item)
+      await window.clipboardAPI.setClipboardContent(item as any)
       console.log('Content copied to clipboard:', item.content)
       onClose?.() // 关闭档案库
     } catch (error) {

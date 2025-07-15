@@ -197,13 +197,13 @@ async function createWindow() {
     console.log('DOM ready, window should be visible')
     // DOM准备好后，发送当前剪切板历史
     if (clipboardHistory.length > 0) {
-      win.webContents.send('clipboard:history-updated', clipboardHistory)
+      win?.webContents.send('clipboard:history-updated', clipboardHistory)
     }
   })
 
   // 阻止窗口关闭，只是隐藏
   win.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!(app as any).isQuitting) {
       event.preventDefault()
       hideWindow()
       console.log('Window close prevented, hiding instead')
@@ -301,7 +301,7 @@ function startClipboardWatcher() {
       
       // 通知渲染进程更新
       if (win) {
-        win.webContents.send('clipboard:history-updated', clipboardHistory)
+        win?.webContents.send('clipboard:history-updated', clipboardHistory)
       }
       
       // 更新托盘菜单
@@ -375,7 +375,7 @@ function createTray() {
           tray = null
         }
         // 设置退出标志并强制退出应用
-        app.isQuitting = true
+        (app as any).isQuitting = true
         app.exit(0)
       }
     }
@@ -441,7 +441,7 @@ function updateTrayMenu() {
         `
         
         const process = spawn('osascript', ['-e', appleScript.trim()])
-        process.on('close', (code) => {
+        process.on('close', (code: any) => {
           console.log('Test paste finished with code:', code)
           
           // 发送完成通知
@@ -456,7 +456,7 @@ function updateTrayMenu() {
         clipboardHistory = []
         updateTrayMenu()
         if (win) {
-          win.webContents.send('clipboard:history-updated', clipboardHistory)
+          win?.webContents.send('clipboard:history-updated', clipboardHistory)
         }
       }
     },
@@ -479,7 +479,7 @@ function updateTrayMenu() {
           tray = null
         }
         // 设置退出标志并强制退出应用
-        app.isQuitting = true
+        (app as any).isQuitting = true
         app.exit(0)
       }
     }
@@ -766,15 +766,15 @@ function registerIpcHandlers() {
         let output = ''
         let error = ''
         
-        process.stdout.on('data', (data) => {
+        process.stdout.on('data', (data: any) => {
           output += data.toString()
         })
         
-        process.stderr.on('data', (data) => {
+        process.stderr.on('data', (data: any) => {
           error += data.toString()
         })
         
-        process.on('close', (code) => {
+        process.on('close', (code: any) => {
           console.log('3. AppleScript output:', output.trim())
           console.log('4. AppleScript error:', error.trim())
           console.log('5. Exit code:', code)
@@ -791,14 +791,14 @@ function registerIpcHandlers() {
       
     } catch (error) {
       console.error('Failed to paste item:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
   // 主动刷新剪切板历史
   ipcMain.handle('clipboard:refresh-history', async () => {
     if (win) {
-      win.webContents.send('clipboard:history-updated', clipboardHistory)
+      win?.webContents.send('clipboard:history-updated', clipboardHistory)
     }
     return clipboardHistory
   })
@@ -870,7 +870,7 @@ function registerIpcHandlers() {
       return { success: false, error: 'Unsupported item type for drag' }
     } catch (error) {
       console.error('Failed to start drag:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -932,7 +932,7 @@ function registerIpcHandlers() {
       console.log(`Item starred: ${originalItem.content} -> Archive ID: ${archiveItem.id}`)
       return { success: true }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -951,7 +951,7 @@ function registerIpcHandlers() {
       }
       return { success: false, error: 'Item not found in archive' }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -965,7 +965,7 @@ function registerIpcHandlers() {
       
       return { success: true, items: filteredItems }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -975,7 +975,7 @@ function registerIpcHandlers() {
       const isStarred = archiveItems.some(item => item.originalId === itemId)
       return { success: true, isStarred }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1014,7 +1014,7 @@ function registerIpcHandlers() {
       
       return { success: true, categories: categoryList }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1024,7 +1024,7 @@ function registerIpcHandlers() {
       // 简单实现：分类名即为ID
       return { success: true, category: { id: name, name, type, itemCount: 0, createdAt: Date.now(), updatedAt: Date.now() } }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1038,7 +1038,7 @@ function registerIpcHandlers() {
       }
       return { success: false, error: 'Item not found' }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1052,7 +1052,7 @@ function registerIpcHandlers() {
       }
       return { success: false, error: 'Item not found' }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1066,7 +1066,7 @@ function registerIpcHandlers() {
       }
       return { success: false, error: 'Item not found' }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1089,7 +1089,7 @@ function registerIpcHandlers() {
         
         // 通知渲染进程更新
         if (win) {
-          win.webContents.send('clipboard:history-updated', clipboardHistory)
+          win?.webContents.send('clipboard:history-updated', clipboardHistory)
         }
         updateTrayMenu()
         
@@ -1098,7 +1098,7 @@ function registerIpcHandlers() {
       
       return { success: false, error: 'Item not found' }
     } catch (error) {
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1133,7 +1133,7 @@ function registerIpcHandlers() {
       return { success: true, filePath: tempFilePath }
     } catch (error) {
       console.error('Failed to create temp file:', error)
-      return { success: false, error: error.message }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -1181,7 +1181,7 @@ app.whenReady().then(async () => {
   // 监听命令行退出信号
   process.on('SIGINT', () => {
     console.log('Received SIGINT (Ctrl+C), exiting...')
-    app.isQuitting = true
+    ;(app as any).isQuitting = true
     unregisterNavigationShortcuts()
     globalShortcut.unregisterAll()
     if (tray) {
@@ -1193,7 +1193,7 @@ app.whenReady().then(async () => {
   
   process.on('SIGTERM', () => {
     console.log('Received SIGTERM, exiting...')
-    app.isQuitting = true
+    ;(app as any).isQuitting = true
     unregisterNavigationShortcuts()
     globalShortcut.unregisterAll()
     if (tray) {
