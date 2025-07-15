@@ -21,6 +21,35 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex: 1;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f5f5f7;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.toggle-btn {
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.toggle-btn.active {
+  background: #007AFF;
+  color: white;
 }
 
 .back-btn {
@@ -70,6 +99,31 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+/* Enhanced content area styles */
+.content-area {
+  flex: 1;
+  overflow: hidden;
+}
+
+.content-area.legacy {
+  /* Legacy styles - keep existing behavior */
+}
+
+.content-area.enhanced {
+  /* Enhanced styles - for specialized layouts */
+  background: transparent;
+  border-left: none;
+}
+
+/* Category sidebar modifications for enhanced view */
+.category-sidebar.enhanced {
+  width: 200px; /* Slightly narrower to give more space to content */
+}
+
+.category-sidebar.legacy {
+  width: 240px; /* Original width */
 }
 
 .category-sidebar {
@@ -279,6 +333,24 @@
 
   .archive-title h2 {
     color: #ffffff;
+  }
+
+  /* View toggle dark mode */
+  .view-toggle {
+    background: #404040;
+  }
+
+  .toggle-btn {
+    color: #ffffff;
+  }
+
+  .toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .toggle-btn.active {
+    background: #007AFF;
+    color: white;
   }
 
   .search-input {

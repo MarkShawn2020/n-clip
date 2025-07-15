@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## **开发军规**
+
+- 禁止备用方案
+- 禁止测试用例
+- 禁止try-catch
+- 禁止setTimeout
+- 禁止动态导入
+- 不要测试，本地在run dev
+
 ## Project Overview
 
 N-Clip is a modern clipboard manager built with Electron, React, and TypeScript. It provides intelligent clipboard monitoring, search functionality, and share card generation with local SQLite storage.

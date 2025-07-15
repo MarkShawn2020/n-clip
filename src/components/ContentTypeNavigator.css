@@ -1,0 +1,263 @@
+/* Content Type Navigator Styles */
+
+.content-type-navigator {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px 0 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e5e7;
+}
+
+.content-type-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.content-type-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Content Type Tab */
+.content-type-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: fit-content;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.content-type-tab:hover {
+  background: #f5f5f7;
+}
+
+.content-type-tab.active {
+  background: #007AFF;
+  color: white;
+}
+
+.content-type-tab.active:hover {
+  background: #0056b3;
+}
+
+/* Tab Elements */
+.tab-icon {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.tab-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tab-count {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.content-type-tab.active .tab-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* Layout Indicator */
+.layout-indicator {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 8px;
+}
+
+.layout-type {
+  font-size: 11px;
+  color: #86868b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .content-type-navigator {
+    padding: 12px 12px 0 12px;
+  }
+  
+  .content-type-tab {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+  
+  .tab-icon {
+    font-size: 14px;
+  }
+  
+  .tab-label {
+    font-size: 13px;
+  }
+  
+  .tab-count {
+    font-size: 11px;
+    padding: 1px 4px;
+    min-width: 16px;
+  }
+  
+  .layout-indicator {
+    padding-bottom: 6px;
+  }
+  
+  .layout-type {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .content-type-navigator {
+    padding: 8px 8px 0 8px;
+  }
+  
+  .content-type-tab {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  
+  .tab-label {
+    display: none; /* Hide labels on very small screens, show only icons */
+  }
+  
+  .tab-icon {
+    font-size: 16px; /* Make icons slightly larger when labels are hidden */
+  }
+}
+
+/* Content Type Specific Styling */
+.content-type-tab[data-type="text"] {
+  --accent-color: #007AFF;
+}
+
+.content-type-tab[data-type="image"] {
+  --accent-color: #34C759;
+}
+
+.content-type-tab[data-type="audio"] {
+  --accent-color: #FF9500;
+}
+
+.content-type-tab[data-type="video"] {
+  --accent-color: #5856D6;
+}
+
+.content-type-tab[data-type="document"] {
+  --accent-color: #FF3B30;
+}
+
+.content-type-tab[data-type="other"] {
+  --accent-color: #8E8E93;
+}
+
+/* Hover effects with accent colors */
+.content-type-tab[data-type="text"]:hover:not(.active) {
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.content-type-tab[data-type="image"]:hover:not(.active) {
+  background: rgba(52, 199, 89, 0.1);
+}
+
+.content-type-tab[data-type="audio"]:hover:not(.active) {
+  background: rgba(255, 149, 0, 0.1);
+}
+
+.content-type-tab[data-type="video"]:hover:not(.active) {
+  background: rgba(88, 86, 214, 0.1);
+}
+
+.content-type-tab[data-type="document"]:hover:not(.active) {
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.content-type-tab[data-type="other"]:hover:not(.active) {
+  background: rgba(142, 142, 147, 0.1);
+}
+
+/* Active states with accent colors */
+.content-type-tab[data-type="text"].active {
+  background: #007AFF;
+}
+
+.content-type-tab[data-type="image"].active {
+  background: #34C759;
+}
+
+.content-type-tab[data-type="audio"].active {
+  background: #FF9500;
+}
+
+.content-type-tab[data-type="video"].active {
+  background: #5856D6;
+}
+
+.content-type-tab[data-type="document"].active {
+  background: #FF3B30;
+}
+
+.content-type-tab[data-type="other"].active {
+  background: #8E8E93;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .content-type-navigator {
+    background: #1c1c1e;
+    border-bottom-color: #38383a;
+  }
+  
+  .content-type-tab:hover {
+    background: #2c2c2e;
+  }
+  
+  .layout-type {
+    color: #98989d;
+  }
+  
+  /* Dark mode hover effects */
+  .content-type-tab[data-type="text"]:hover:not(.active) {
+    background: rgba(0, 122, 255, 0.2);
+  }
+  
+  .content-type-tab[data-type="image"]:hover:not(.active) {
+    background: rgba(52, 199, 89, 0.2);
+  }
+  
+  .content-type-tab[data-type="audio"]:hover:not(.active) {
+    background: rgba(255, 149, 0, 0.2);
+  }
+  
+  .content-type-tab[data-type="video"]:hover:not(.active) {
+    background: rgba(88, 86, 214, 0.2);
+  }
+  
+  .content-type-tab[data-type="document"]:hover:not(.active) {
+    background: rgba(255, 59, 48, 0.2);
+  }
+  
+  .content-type-tab[data-type="other"]:hover:not(.active) {
+    background: rgba(142, 142, 147, 0.2);
+  }
+}

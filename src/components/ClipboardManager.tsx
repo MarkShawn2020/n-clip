@@ -25,6 +25,7 @@ export default function ClipboardManager() {
   const [fullscreenImage, setFullscreenImage] = useState<ClipboardItem | null>(null)
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [hasAccessibilityPermission, setHasAccessibilityPermission] = useState(false)
+  const [starredItems, setStarredItems] = useState<Set<string>>(new Set())
 
 
   // 加载剪切板历史和检查权限
@@ -215,6 +216,30 @@ export default function ClipboardManager() {
     }
   }, [filteredItems, selectedIndex])
 
+  // 监听剪切板项目变化，更新收藏状态
+  useEffect(() => {
+    const updateStarredStatus = async () => {
+      const newStarredSet = new Set<string>()
+      
+      for (const item of filteredItems) {
+        try {
+          const result = await window.clipboardAPI.isItemStarred(item.id)
+          if (result.success && result.isStarred) {
+            newStarredSet.add(item.id)
+          }
+        } catch (error) {
+          console.error('Failed to check star status for item:', item.id, error)
+        }
+      }
+      
+      setStarredItems(newStarredSet)
+    }
+    
+    if (filteredItems.length > 0) {
+      updateStarredStatus()
+    }
+  }, [filteredItems])
+
   // 自动聚焦搜索框
   useEffect(() => {
     if (searchInputRef.current) {
@@ -358,30 +383,28 @@ export default function ClipboardManager() {
   // Star/Unstar项目
   const handleToggleStar = async (item: ClipboardItem) => {
     try {
-      if (item.isStarred) {
-        // Unstar项目
+      // 检查当前收藏状态
+      const isCurrentlyStarred = starredItems.has(item.id)
+      
+      if (isCurrentlyStarred) {
+        // Unstar项目 - 从档案库中删除
         const result = await window.clipboardAPI.unstarItem(item.id)
         if (result.success) {
-          setItems(prev => prev.map(i => 
-            i.id === item.id ? { ...i, isStarred: false, starredAt: undefined, category: 'default' } : i
-          ))
-          console.log('Item unstarred successfully')
+          console.log('Item unstarred successfully - removed from archive')
+          setStarredItems(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(item.id)
+            return newSet
+          })
         } else {
           console.error('Failed to unstar item:', result.error)
         }
       } else {
-        // Star项目 - 使用默认分类
+        // Star项目 - 添加到档案库
         const result = await window.clipboardAPI.starItem(item.id, 'mixed-favorites')
         if (result.success) {
-          setItems(prev => prev.map(i => 
-            i.id === item.id ? { 
-              ...i, 
-              isStarred: true, 
-              starredAt: Date.now(), 
-              category: 'mixed-favorites' 
-            } : i
-          ))
-          console.log('Item starred successfully')
+          console.log('Item starred successfully - added to archive')
+          setStarredItems(prev => new Set(prev).add(item.id))
         } else {
           console.error('Failed to star item:', result.error)
         }
@@ -488,7 +511,7 @@ export default function ClipboardManager() {
               <div
                 key={item.id}
                 data-item-id={item.id}
-                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${item.isStarred ? 'starred' : ''}`}
+                className={`item ${index === selectedIndex ? 'selected' : ''} ${item.type === 'image' ? 'draggable-item' : ''} ${starredItems.has(item.id) ? 'starred' : ''}`}
                 onClick={() => handleItemSelectAndClose(item, index)}
                 onMouseDown={(e) => handleMouseDown(e, item)}
                 onContextMenu={(e) => handleContextMenu(e, item)}
@@ -517,7 +540,7 @@ export default function ClipboardManager() {
                   </div>
                 </div>
                 <div className="item-meta">
-                  {item.isStarred && (
+                  {starredItems.has(item.id) && (
                     <div className="item-star-indicator">⭐</div>
                   )}
                   <div className="item-shortcut">
@@ -552,9 +575,9 @@ export default function ClipboardManager() {
                     <button 
                       className="action-btn star-btn"
                       onClick={() => handleToggleStar(selectedItem)}
-                      title={selectedItem.isStarred ? "取消收藏" : "收藏到档案库 (S键)"}
+                      title={starredItems.has(selectedItem.id) ? "取消收藏" : "收藏到档案库 (S键)"}
                     >
-                      {selectedItem.isStarred ? '⭐' : '☆'}
+                      {starredItems.has(selectedItem.id) ? '⭐' : '☆'}
                     </button>
                     <button 
                       className="action-btn share-btn"
@@ -605,7 +628,7 @@ export default function ClipboardManager() {
       
       <div className="footer">
         <div className="branding">
-          <span className="brand-name">NClip</span>
+          <span className="brand-name">N-Clip</span>
           <span className="brand-tagline">Copy. Paste. Repeat.</span>
         </div>
       </div>

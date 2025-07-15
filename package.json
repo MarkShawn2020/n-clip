@@ -26,6 +26,7 @@
     "electron-updater": "^6.3.9",
     "jotai": "^2.12.5",
     "node-addon-api": "^7.0.0",
+    "react-masonry-css": "^1.0.16",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
