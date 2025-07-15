@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm run build:native && tsc && vite build && electron-builder --publish=always",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "node -e \"if(!process.env.CI) { try { require('child_process').execSync('electron-builder install-app-deps', {stdio: 'inherit'}); } catch(e) { console.log('Skipping electron-builder install-app-deps:', e.message); } }\"",
     "build:native": "cd electron/native && node-gyp rebuild",
     "install:native": "cd electron/native && npm install",
     "preview": "vite preview",

@@ -45,7 +45,8 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - ✅ 已修复: 添加平台特定的依赖安装步骤
 - ✅ 已修复: 为accessibility模块添加平台特定的构建配置
 - ✅ 已修复: 创建非macOS平台的stub实现
-- ✅ 已修复: 添加postinstall脚本使用electron-builder install-app-deps
+- ✅ 已修复: 添加postinstall脚本使用electron-builder install-app-deps（仅本地环境）
+- ✅ 已修复: CI环境中手动运行electron-builder install-app-deps（在Python设置后）
 - ✅ 已修复: 配置electron-builder跳过自动重建依赖
 - ✅ 已修复: 改用分离架构构建避免universal二进制文件冲突
 
@@ -122,7 +123,20 @@ Detected file "Contents/native/accessibility.node" that's the same in both x64 a
 - ✅ 已修复: 这样可以为每个架构单独构建原生模块
 - 如果需要universal构建，可以配置x64ArchFiles规则
 
-### 9. 测试失败
+### 9. Postinstall脚本失败
+
+**错误信息**:
+```
+postinstall: ModuleNotFoundError: No module named 'distutils'
+ELIFECYCLE Command failed with exit code 1
+```
+
+**解决方案**:
+- ✅ 已修复: 在CI环境中跳过postinstall自动执行
+- ✅ 已修复: 在CI中手动运行electron-builder install-app-deps（在Python设置后）
+- ✅ 已修复: 本地环境仍然使用postinstall自动重建依赖
+
+### 10. 测试失败
 
 **错误信息**:
 ```

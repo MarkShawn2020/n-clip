@@ -65,6 +65,9 @@ jobs:
     - name: Build native modules
       run: pnpm run build:native
       
+    - name: Install app dependencies for Electron
+      run: pnpm exec electron-builder install-app-deps
+      
     - name: Build and publish releases
       run: pnpm run build
       env:
