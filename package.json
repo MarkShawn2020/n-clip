@@ -28,7 +28,8 @@
     "dist": "pnpm run build:native && tsc && vite build && electron-builder --publish=never",
     "dist:mac": "pnpm run build:native && tsc && vite build && electron-builder --mac --publish=never",
     "dist:win": "pnpm run build:native && tsc && vite build && electron-builder --win --publish=never",
-    "dist:linux": "pnpm run build:native && tsc && vite build && electron-builder --linux --publish=never"
+    "dist:linux": "pnpm run build:native && tsc && vite build && electron-builder --linux --publish=never",
+    "validate-workflows": "./scripts/validate-workflows.sh"
   },
   "dependencies": {
     "canvas": "^3.1.2",

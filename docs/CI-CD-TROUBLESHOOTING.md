@@ -27,7 +27,23 @@ Supported file patterns: package-lock.json,npm-shrinkwrap.json,yarn.lock
 - ✅ 已修复: 安装必要的系统依赖包
 - ✅ 已修复: 添加平台特定的依赖安装步骤
 
-### 3. PNPM版本不匹配
+### 3. YAML语法错误
+
+**错误信息**:
+```
+Invalid workflow file: .github/workflows/version.yml#L81
+You have an error in your yaml syntax on line 81
+```
+
+**解决方案**:
+- ✅ 已修复: 重写了version.yml中的CHANGELOG更新逻辑
+- ✅ 已添加: workflow语法验证脚本
+- 使用验证脚本检查语法:
+  ```bash
+  pnpm run validate-workflows
+  ```
+
+### 4. PNPM版本不匹配
 
 **错误信息**:
 ```
