@@ -173,8 +173,11 @@ Error: The operation was canceled.
 **解决方案**:
 - ✅ 已修复: 创建CI专用配置文件（electron-builder.ci.json）
 - ✅ 已修复: CI环境只构建x64架构，减少资源消耗
-- ✅ 已修复: 添加NODE_OPTIONS="--max-old-space-size=4096"优化内存使用
+- ✅ 已修复: 只构建ZIP格式，跳过资源消耗大的DMG/NSIS/DEB格式
+- ✅ 已修复: 设置compression="store"跳过压缩节省时间
+- ✅ 已修复: 添加NODE_OPTIONS="--max-old-space-size=6144"优化内存使用
 - ✅ 已修复: 禁用npmRebuild和buildDependenciesFromSource减少构建时间
+- ✅ 已修复: 设置ELECTRON_BUILDER_COMPRESSION_LEVEL=0和ELECTRON_BUILDER_CACHE=false
 - ✅ 已修复: 生产环境仍然构建全架构版本
 
 ### 12. 构建产物上传失败 (Artifact Upload Failure)

@@ -5,6 +5,8 @@
   "asar": true,
   "npmRebuild": false,
   "buildDependenciesFromSource": false,
+  "compression": "store",
+  "forceCodeSigning": false,
   "directories": {
     "output": "release/${version}"
   },
@@ -23,10 +25,6 @@
     "category": "public.app-category.productivity",
     "target": [
       {
-        "target": "dmg",
-        "arch": ["x64"]
-      },
-      {
         "target": "zip",
         "arch": ["x64"]
       }
@@ -39,10 +37,6 @@
   },
   "win": {
     "target": [
-      {
-        "target": "nsis",
-        "arch": ["x64"]
-      },
       {
         "target": "zip",
         "arch": ["x64"]
@@ -57,10 +51,6 @@
     "target": [
       {
         "target": "AppImage",
-        "arch": ["x64"]
-      },
-      {
-        "target": "deb",
         "arch": ["x64"]
       }
     ],
