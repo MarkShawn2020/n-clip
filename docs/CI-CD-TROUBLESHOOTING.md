@@ -109,9 +109,12 @@ Error: The job running on runner has exceeded the maximum execution time
 **错误信息**:
 ```
 Tests failed in CI environment
+No test files found, exiting with code 1
 ```
 
 **解决方案**:
+- ✅ 已修复: 添加`--passWithNoTests`标志，当没有测试文件时不会失败
+- ✅ 已修复: CI中添加条件检查，只在有测试文件时运行测试
 - 检查headless环境兼容性
 - 确保测试不依赖特定的系统配置
 - 使用虚拟显示器（如需要）

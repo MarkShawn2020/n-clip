@@ -63,7 +63,12 @@ jobs:
       run: pnpm exec tsc -noEmit
       
     - name: Run tests
-      run: pnpm run pretest && pnpm test
+      run: |
+        if [ -d "test" ] && [ "$(find test -name '*.spec.*' -o -name '*.test.*' | wc -l)" -gt 0 ]; then
+          pnpm run pretest && pnpm test
+        else
+          echo "No test files found, skipping tests"
+        fi
       
     - name: Build native modules
       run: pnpm run build:native

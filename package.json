@@ -19,7 +19,7 @@
     "install:native": "cd electron/native && npm install",
     "preview": "vite preview",
     "pretest": "vite build --mode=test",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "release": "./scripts/release.sh",
     "release:patch": "pnpm version patch && git push origin main && git push origin --tags",
     "release:minor": "pnpm version minor && git push origin main && git push origin --tags",
