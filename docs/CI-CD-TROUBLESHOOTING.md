@@ -45,8 +45,9 @@ ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.ya
 - ✅ 已修复: 添加平台特定的依赖安装步骤
 - ✅ 已修复: 为accessibility模块添加平台特定的构建配置
 - ✅ 已修复: 创建非macOS平台的stub实现
-- ✅ 已修复: 添加@electron/rebuild来正确重建Electron原生模块
+- ✅ 已修复: 添加postinstall脚本使用electron-builder install-app-deps
 - ✅ 已修复: 配置electron-builder跳过自动重建依赖
+- ✅ 已修复: 改用分离架构构建避免universal二进制文件冲突
 
 ### 4. YAML语法错误
 
@@ -109,7 +110,19 @@ Error: The job running on runner has exceeded the maximum execution time
 - 考虑分阶段构建
 - 增加timeout设置
 
-### 8. 测试失败
+### 8. Universal二进制构建失败
+
+**错误信息**:
+```
+Detected file "Contents/native/accessibility.node" that's the same in both x64 and arm64 builds and not covered by the x64ArchFiles rule
+```
+
+**解决方案**:
+- ✅ 已修复: 改用分离架构构建（x64, arm64）而非universal
+- ✅ 已修复: 这样可以为每个架构单独构建原生模块
+- 如果需要universal构建，可以配置x64ArchFiles规则
+
+### 9. 测试失败
 
 **错误信息**:
 ```

@@ -23,11 +23,11 @@
     "target": [
       {
         "target": "dmg",
-        "arch": ["universal"]
+        "arch": ["x64", "arm64"]
       },
       {
         "target": "zip",
-        "arch": ["universal"]
+        "arch": ["x64", "arm64"]
       }
     ],
     "artifactName": "${productName}_${version}_${arch}.${ext}",
