@@ -155,7 +155,29 @@ Error: Process completed with exit code 1
 - ✅ 已修复: 添加CI步骤超时配置防止挂起
 - ✅ 已修复: 现在只有canvas作为唯一的原生依赖，兼容性更好
 
-### 11. 测试失败
+### 11. 构建过程中途取消 (Build Cancellation)
+
+**错误信息**:
+```
+• building block map  blockMapFile=release/1.1.13/N-Clip_1.1.13_x64.zip.blockmap
+• building block map  blockMapFile=release/1.1.13/N-Clip_1.1.13_arm64.dmg.blockmap
+Error: The operation was canceled.
+```
+
+**原因分析**:
+- 构建过程在最后阶段（block map生成）被取消
+- 通常发生在同时构建多个架构（x64 + arm64）时
+- 资源耗尽：内存、CPU或磁盘空间不足
+- 新版本依赖（如Vite 7.0.4）可能更消耗资源
+
+**解决方案**:
+- ✅ 已修复: 创建CI专用配置文件（electron-builder.ci.json）
+- ✅ 已修复: CI环境只构建x64架构，减少资源消耗
+- ✅ 已修复: 添加NODE_OPTIONS="--max-old-space-size=4096"优化内存使用
+- ✅ 已修复: 禁用npmRebuild和buildDependenciesFromSource减少构建时间
+- ✅ 已修复: 生产环境仍然构建全架构版本
+
+### 12. 测试失败
 
 **错误信息**:
 ```

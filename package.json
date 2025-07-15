@@ -27,6 +27,7 @@
     "release:major": "pnpm version major && git push origin main && git push origin --tags",
     "type-check": "tsc -noEmit",
     "dist": "pnpm run build:native && tsc && vite build && electron-builder --publish=never",
+    "dist:ci": "pnpm run build:native && tsc && vite build && electron-builder --publish=never --config electron-builder.ci.json",
     "dist:mac": "pnpm run build:native && tsc && vite build && electron-builder --mac --publish=never",
     "dist:win": "pnpm run build:native && tsc && vite build && electron-builder --win --publish=never",
     "dist:linux": "pnpm run build:native && tsc && vite build && electron-builder --linux --publish=never",

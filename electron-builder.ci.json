@@ -3,6 +3,7 @@
   "appId": "com.neurora.n-clip",
   "productName": "N-Clip",
   "asar": true,
+  "npmRebuild": false,
   "buildDependenciesFromSource": false,
   "directories": {
     "output": "release/${version}"
@@ -23,11 +24,11 @@
     "target": [
       {
         "target": "dmg",
-        "arch": ["x64", "arm64"]
+        "arch": ["x64"]
       },
       {
         "target": "zip",
-        "arch": ["x64", "arm64"]
+        "arch": ["x64"]
       }
     ],
     "artifactName": "${productName}_${version}_${arch}.${ext}",
@@ -37,8 +38,6 @@
     "entitlements": "build/entitlements.mac.plist",
     "entitlementsInherit": "build/entitlements.mac.plist"
   },
-  "npmRebuild": false,
-  "buildDependenciesFromSource": false,
   "win": {
     "target": [
       {

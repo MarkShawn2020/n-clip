@@ -95,7 +95,7 @@ jobs:
         echo "macOS dependencies installed"
       
     - name: Build Electron app
-      run: pnpm run dist
+      run: pnpm run dist:ci
       timeout-minutes: 15
       env:
         # macOS code signing
@@ -110,6 +110,8 @@ jobs:
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         # GitHub token for releases
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Memory optimization for electron-builder
+        NODE_OPTIONS: "--max-old-space-size=4096"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
