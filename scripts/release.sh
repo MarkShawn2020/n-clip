@@ -83,9 +83,9 @@ echo -e "${GREEN}✅ All checks passed!${NC}"
 # Bump version
 echo -e "${YELLOW}📦 Bumping version...${NC}"
 if [ "$VERSION_TYPE" = "prerelease" ]; then
-    NEW_VERSION=$(npm version prerelease --preid=beta)
+    NEW_VERSION=$(pnpm version prerelease --preid=beta)
 else
-    NEW_VERSION=$(npm version $VERSION_TYPE)
+    NEW_VERSION=$(pnpm version $VERSION_TYPE)
 fi
 
 echo -e "${GREEN}✅ Version bumped to: ${NEW_VERSION}${NC}"
