@@ -113,12 +113,24 @@ jobs:
         # Memory optimization for electron-builder
         NODE_OPTIONS: "--max-old-space-size=4096"
         
+    - name: List build artifacts
+      run: |
+        echo "Build artifacts:"
+        find release/ -type f -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.yml" | head -20
+        echo "Total size:"
+        du -sh release/ 2>/dev/null || echo "No release directory"
+        
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-build
         path: |
-          release/
-          !release/mac-universal/
-          !release/win-unpacked/
-          !release/linux-unpacked/
+          release/**/*.dmg
+          release/**/*.zip
+          release/**/*.exe
+          release/**/*.deb
+          release/**/*.AppImage
+          release/**/*.yml
+        retention-days: 7
+        compression-level: 6
+      continue-on-error: true

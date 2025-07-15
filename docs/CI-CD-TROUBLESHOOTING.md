@@ -177,7 +177,29 @@ Error: The operation was canceled.
 - ✅ 已修复: 禁用npmRebuild和buildDependenciesFromSource减少构建时间
 - ✅ 已修复: 生产环境仍然构建全架构版本
 
-### 12. 测试失败
+### 12. 构建产物上传失败 (Artifact Upload Failure)
+
+**错误信息**:
+```
+Beginning upload of artifact content to blob storage
+Uploaded bytes 100663296
+Error: The operation was canceled.
+```
+
+**原因分析**:
+- 构建成功完成，但artifact上传过程中被取消
+- 上传的文件过大或过多（通常>100MB时出现）
+- 网络超时或GitHub Actions服务限制
+- 包含了不必要的大文件（如解压的应用目录）
+
+**解决方案**:
+- ✅ 已修复: 只上传必要的分发文件（.dmg, .zip, .exe, .deb, .AppImage, .yml）
+- ✅ 已修复: 排除中间构建目录和解压文件
+- ✅ 已修复: 添加compression-level=6优化上传大小
+- ✅ 已修复: 添加continue-on-error=true避免整个workflow失败
+- ✅ 已修复: 添加构建产物大小诊断信息
+
+### 13. 测试失败
 
 **错误信息**:
 ```
