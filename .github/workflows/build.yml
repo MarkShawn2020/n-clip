@@ -68,6 +68,24 @@ jobs:
     - name: Build native modules
       run: pnpm run build:native
       
+    - name: Setup Python for native modules (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libx11-dev libxkbfile-dev libsecret-1-dev libnss3-dev
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        # Install any macOS specific dependencies if needed
+        echo "macOS dependencies installed"
+      
     - name: Build/release Electron app
       uses: samuelmeuli/action-electron-builder@v1
       with:

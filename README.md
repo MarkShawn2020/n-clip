@@ -90,7 +90,9 @@ pnpm build
 - **Windows**: `.exe` 安装程序和 `.zip` 压缩包  
 - **Linux**: `.AppImage` 和 `.deb` 包
 
-更多详情请参考 [CI/CD 文档](./docs/CICD.md)。
+更多详情请参考：
+- [CI/CD 文档](./docs/CICD.md)
+- [CI/CD 故障排除指南](./docs/CI-CD-TROUBLESHOOTING.md)
 
 ## 🎮 使用方法
 
