@@ -15,7 +15,20 @@ Supported file patterns: package-lock.json,npm-shrinkwrap.json,yarn.lock
 - ✅ 已修复: 使用pnpm专用的缓存配置
 - ✅ 已修复: 所有脚本改为使用pnpm而非npm
 
-### 2. 原生模块构建失败
+### 2. PNPM锁定文件缺失
+
+**错误信息**:
+```
+ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.yaml is absent
+```
+
+**解决方案**:
+- ✅ 已修复: 从`.gitignore`中移除了`pnpm-lock.yaml`
+- ✅ 已修复: 确保`pnpm-lock.yaml`文件被提交到仓库
+- ✅ 已修复: 更新CI中的pnpm版本至9.0以匹配lockfile版本
+- 这个文件对于确保CI环境和本地环境的依赖版本一致性非常重要
+
+### 3. 原生模块构建失败
 
 **可能原因**:
 - Python环境缺失
@@ -27,7 +40,7 @@ Supported file patterns: package-lock.json,npm-shrinkwrap.json,yarn.lock
 - ✅ 已修复: 安装必要的系统依赖包
 - ✅ 已修复: 添加平台特定的依赖安装步骤
 
-### 3. YAML语法错误
+### 4. YAML语法错误
 
 **错误信息**:
 ```
@@ -43,18 +56,21 @@ You have an error in your yaml syntax on line 81
   pnpm run validate-workflows
   ```
 
-### 4. PNPM版本不匹配
+### 5. PNPM版本不匹配
 
 **错误信息**:
 ```
 Error: This project requires pnpm version X but found version Y
+ERR_PNPM_NO_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.yaml is absent
 ```
 
 **解决方案**:
-- 在workflows中指定pnpm版本: `version: 8`
+- ✅ 已修复: 更新workflows中的pnpm版本至9.0以匹配lockfile版本
+- 确保CI中的pnpm版本与本地开发环境一致
+- 检查`pnpm-lock.yaml`文件顶部的`lockfileVersion`来确定需要的pnpm版本
 - 使用`pnpm install --frozen-lockfile`确保依赖版本一致
 
-### 4. 代码签名失败
+### 6. 代码签名失败
 
 **错误信息**:
 ```
@@ -73,7 +89,7 @@ Error: Code signing failed
    base64 -i certificate.p12 -o certificate.txt
    ```
 
-### 5. 构建超时
+### 7. 构建超时
 
 **错误信息**:
 ```
@@ -85,7 +101,7 @@ Error: The job running on runner has exceeded the maximum execution time
 - 考虑分阶段构建
 - 增加timeout设置
 
-### 6. 测试失败
+### 8. 测试失败
 
 **错误信息**:
 ```
