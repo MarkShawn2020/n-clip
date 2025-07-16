@@ -24,7 +24,7 @@ jobs:
     
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest]
         node-version: [20.x]
         
     steps:
@@ -63,6 +63,7 @@ jobs:
       run: pnpm exec tsc -noEmit
       
     - name: Run tests
+      shell: bash
       run: |
         if [ -d "test" ] && [ "$(find test -name '*.spec.*' -o -name '*.test.*' | wc -l)" -gt 0 ]; then
           pnpm run pretest && pnpm test
@@ -82,14 +83,7 @@ jobs:
       run: pnpm exec electron-builder install-app-deps
       timeout-minutes: 10
         
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libx11-dev libxkbfile-dev libsecret-1-dev libnss3-dev
-        
     - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
       run: |
         # Install any macOS specific dependencies if needed
         echo "macOS dependencies installed"
@@ -111,20 +105,17 @@ jobs:
     - name: List build artifacts
       run: |
         echo "Build artifacts:"
-        find release/ -type f -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.yml" | head -20
+        find release/ -type f -name "*.dmg" -o -name "*.zip" -o -name "*.yml" | head -20
         echo "Total size:"
         du -sh release/ 2>/dev/null || echo "No release directory"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os }}-build
+        name: macos-build
         path: |
           release/**/*.dmg
           release/**/*.zip
-          release/**/*.exe
-          release/**/*.deb
-          release/**/*.AppImage
           release/**/*.yml
         retention-days: 7
         compression-level: 6
