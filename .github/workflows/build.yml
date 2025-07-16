@@ -3,6 +3,7 @@ name: Build/release
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
     paths-ignore:
       - "**.md"
       - "**.spec.js"
@@ -120,3 +121,17 @@ jobs:
         retention-days: 7
         compression-level: 6
       continue-on-error: true
+      
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/**/*.dmg
+          release/**/*.zip
+          release/**/*.yml
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
