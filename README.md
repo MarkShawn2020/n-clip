@@ -52,37 +52,55 @@ pnpm dev
 pnpm build
 ```
 
-## 🔄 CI/CD 和发布
+## 🔄 自动化发布流程
 
-### 自动化发布流程
+### Semantic Release 集成
 
-该项目配置了完整的GitHub Actions CI/CD流程，支持：
+该项目采用 [semantic-release](https://github.com/semantic-release/semantic-release) 实现全自动化的版本管理和发布流程：
 
-- **多平台构建**: macOS、Windows、Linux
-- **自动化测试**: TypeScript检查、单元测试
-- **代码签名**: macOS和Windows代码签名
-- **自动发布**: 基于git标签的自动发布
+- **🤖 智能版本管理**: 基于 commit 信息自动确定版本号
+- **📝 自动生成 CHANGELOG**: 根据 commit 历史自动生成发布说明
+- **🚀 自动发布**: 推送到 main 分支时自动构建并发布到 GitHub Releases
+- **📦 自动上传构建产物**: .dmg、.zip 文件自动上传到 Release
 
-### 发布新版本
+### Commit 信息规范
 
-1. **使用发布脚本**（推荐）:
-   ```sh
-   pnpm release
+使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+
+```bash
+# 功能更新 (minor version: 1.0.0 → 1.1.0)
+feat: add new clipboard search feature
+
+# 错误修复 (patch version: 1.0.0 → 1.0.1)
+fix: resolve memory leak in clipboard monitoring
+
+# 破坏性更改 (major version: 1.0.0 → 2.0.0)
+feat!: redesign clipboard storage format
+# 或者
+feat: redesign clipboard storage format
+
+BREAKING CHANGE: clipboard storage format changed
+```
+
+### 发布流程
+
+1. **开发并提交代码**:
+   ```bash
+   git add .
+   git commit -m "feat: add new feature"
    ```
 
-2. **手动发布**:
-   ```sh
-   # 更新版本号
-   pnpm version patch|minor|major
-   
-   # 推送到GitHub
-   git push origin main --tags
+2. **推送到 main 分支**:
+   ```bash
+   git push origin main
    ```
 
-3. **GitHub Actions发布**:
-   - 进入GitHub仓库的Actions页面
-   - 选择"Version Management"工作流
-   - 手动触发并选择版本类型
+3. **自动发布**: GitHub Actions 会自动：
+   - 分析 commit 历史
+   - 确定新版本号
+   - 构建应用程序
+   - 创建 GitHub Release
+   - 上传构建产物
 
 ### 构建输出
 
@@ -90,9 +108,12 @@ pnpm build
 - **Windows**: `.exe` 安装程序和 `.zip` 压缩包  
 - **Linux**: `.AppImage` 和 `.deb` 包
 
-更多详情请参考：
-- [CI/CD 文档](./docs/CICD.md)
-- [CI/CD 故障排除指南](./docs/CI-CD-TROUBLESHOOTING.md)
+### 手动发布（仅在需要时）
+
+```bash
+# 本地运行 semantic-release
+pnpm release
+```
 
 ## 🎮 使用方法
 
