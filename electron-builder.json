@@ -9,7 +9,8 @@
   },
   "files": [
     "dist-electron",
-    "dist"
+    "dist",
+    "public/logo.png"
   ],
   "extraFiles": [
     {
@@ -22,6 +23,11 @@
     {
       "from": "public/logo.png",
       "to": "logo.png"
+    },
+    {
+      "from": "public/",
+      "to": "app-assets/",
+      "filter": ["logo.png"]
     }
   ],
   "asarUnpack": [
