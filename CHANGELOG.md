@@ -1,3 +1,10 @@
+## [3.8.1](https://github.com/MarkShawn2020/n-clip/compare/v3.8.0...v3.8.1) (2025-07-17)
+
+
+### Bug Fixes
+
+* 🚀 修复关键启动问题 ([b7f463c](https://github.com/MarkShawn2020/n-clip/commit/b7f463c8eb722091ffdfa050a7fc66980c67ee3f))
+
 # [3.8.0](https://github.com/MarkShawn2020/n-clip/compare/v3.7.0...v3.8.0) (2025-07-17)
 
 
