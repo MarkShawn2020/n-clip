@@ -1,3 +1,10 @@
+## [3.8.5](https://github.com/MarkShawn2020/n-clip/compare/v3.8.4...v3.8.5) (2025-07-17)
+
+
+### Bug Fixes
+
+* cicd logo ([545d997](https://github.com/MarkShawn2020/n-clip/commit/545d9975cc3426f11d57b2543f0d09abfc6d41de))
+
 ## [3.8.4](https://github.com/MarkShawn2020/n-clip/compare/v3.8.3...v3.8.4) (2025-07-17)
 
 
