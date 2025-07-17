@@ -211,7 +211,7 @@ async function createWindow() {
   })
 
   // 监听窗口失焦事件 - Alfred风格自动隐藏
-  win.on('blur', () => {
+  win.on('blur-sm', () => {
     if (win && win.isVisible()) {
       console.log('Window lost focus, hiding...')
       hideWindow()
