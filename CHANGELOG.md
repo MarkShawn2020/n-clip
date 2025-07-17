@@ -1,3 +1,10 @@
+## [3.8.3](https://github.com/MarkShawn2020/n-clip/compare/v3.8.2...v3.8.3) (2025-07-17)
+
+
+### Bug Fixes
+
+* 💀 承认错误，用最简单方法解决logo问题 ([af7aea8](https://github.com/MarkShawn2020/n-clip/commit/af7aea8b969a3242579a7b230cf669eac028bf83))
+
 ## [3.8.2](https://github.com/MarkShawn2020/n-clip/compare/v3.8.1...v3.8.2) (2025-07-17)
 
 
