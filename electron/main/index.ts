@@ -532,7 +532,23 @@ function createTray() {
             }
         },
         {
+            label: '📂 打开收藏库',
+            click: async () => {
+                try {
+                    console.log('用户从托盘打开收藏库')
+                    await openArchiveWindow()
+                } catch (error) {
+                    console.error('从托盘打开收藏库失败:', error)
+                }
+            }
+        },
+        { type: 'separator' },
+        {
             label: `Clipboard Items: ${clipboardHistory.length}`,
+            enabled: false
+        },
+        {
+            label: `Archive Items: ${archiveItems.length}`,
             enabled: false
         },
         {
@@ -699,7 +715,23 @@ function updateTrayMenu() {
             }
         },
         {
+            label: '📂 打开收藏库',
+            click: async () => {
+                try {
+                    console.log('用户从托盘打开收藏库')
+                    await openArchiveWindow()
+                } catch (error) {
+                    console.error('从托盘打开收藏库失败:', error)
+                }
+            }
+        },
+        { type: 'separator' },
+        {
             label: `Clipboard Items: ${clipboardHistory.length}`,
+            enabled: false
+        },
+        {
+            label: `Archive Items: ${archiveItems.length}`,
             enabled: false
         },
         {
