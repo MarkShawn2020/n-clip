@@ -190,4 +190,4 @@ CREATE TABLE clipboard_items (
 ## 🙏 致谢
 
 - 基于 [electron-vite-react](https://github.com/electron-vite/electron-vite-react) 模板
-- 感谢所有贡献者和开源社区
+- 感谢所有贡献者和开源社区# Release Test
