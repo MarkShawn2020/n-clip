@@ -1,3 +1,10 @@
+## [3.2.2](https://github.com/MarkShawn2020/n-clip/compare/v3.2.1...v3.2.2) (2025-07-17)
+
+
+### Bug Fixes
+
+* correct global shortcut back to Cmd+Shift+V ([1e803a1](https://github.com/MarkShawn2020/n-clip/commit/1e803a1fb42450e2cdb84be1d35a10c77d017752))
+
 ## [3.2.1](https://github.com/MarkShawn2020/n-clip/compare/v3.2.0...v3.2.1) (2025-07-17)
 
 
