@@ -1,0 +1,54 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot-auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.labels.*.name, 'auto-merge')
+    
+    steps:
+    - name: Dependabot metadata
+      id: metadata
+      uses: dependabot/fetch-metadata@v1
+      with:
+        github-token: "${{ secrets.GITHUB_TOKEN }}"
+        
+    - name: Auto-merge for safe updates
+      if: |
+        (steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch') ||
+        (steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-minor') ||
+        (steps.metadata.outputs.dependency-type == 'direct:production' && steps.metadata.outputs.update-type == 'version-update:semver-patch')
+      run: |
+        echo "Auto-merging ${{ steps.metadata.outputs.dependency-names }}"
+        gh pr merge --auto --merge "$PR_URL"
+      env:
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Comment on auto-merge
+      if: |
+        (steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch') ||
+        (steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-minor') ||
+        (steps.metadata.outputs.dependency-type == 'direct:production' && steps.metadata.outputs.update-type == 'version-update:semver-patch')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.number,
+            body: `🤖 **Auto-merge enabled**: This ${{ steps.metadata.outputs.update-type }} update for \`${{ steps.metadata.outputs.dependency-names }}\` will be automatically merged once CI passes.
+            
+            **Dependency info:**
+            - Type: ${{ steps.metadata.outputs.dependency-type }}
+            - Update type: ${{ steps.metadata.outputs.update-type }}
+            - Previous version: ${{ steps.metadata.outputs.previous-version }}
+            - New version: ${{ steps.metadata.outputs.new-version }}`
+          })

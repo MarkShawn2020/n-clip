@@ -1,11 +1,76 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://help.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+# Dependabot configuration for N-Clip
+# Optimized to reduce CI/CD noise while maintaining security
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # 安全更新：高优先级，每周检查
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    # 仅处理安全更新和重要依赖
+    allow:
+      - dependency-type: "direct:production"
+        update-type: "security"
+      - dependency-name: "electron"
+        update-type: "version-update:semver-major"
+      - dependency-name: "react"
+        update-type: "version-update:semver-major"
+      - dependency-name: "react-dom"
+        update-type: "version-update:semver-major"
+    # 忽略开发依赖的patch更新
+    ignore:
+      - dependency-name: "*"
+        dependency-type: "development"
+        update-type: "version-update:semver-patch"
+      - dependency-name: "@types/*"
+        update-type: "version-update:semver-patch"
+      - dependency-name: "eslint*"
+        update-type: "version-update:semver-patch"
+      - dependency-name: "prettier*"
+        update-type: "version-update:semver-patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "auto-merge"
+    reviewers:
+      - "MarkShawn2020"
+    
+  # 开发依赖：低优先级，季度检查
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
       interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 3
+    # 仅处理开发依赖的重要更新
+    allow:
+      - dependency-type: "direct:development"
+        update-type: "version-update:semver-minor"
+      - dependency-type: "direct:development"
+        update-type: "version-update:semver-major"
+    # 忽略频繁更新的工具
+    ignore:
+      - dependency-name: "vite"
+        update-type: "version-update:semver-patch"
+      - dependency-name: "vitest"
+        update-type: "version-update:semver-patch"
+      - dependency-name: "typescript"
+        update-type: "version-update:semver-patch"
+    commit-message:
+      prefix: "chore(dev-deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "development"
+    reviewers:
+      - "MarkShawn2020"

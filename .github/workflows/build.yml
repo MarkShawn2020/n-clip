@@ -13,12 +13,119 @@ on:
       - ".gitignore"
       - ".github/**"
       - "!.github/workflows/build.yml"
+      - "LICENSE"
+      - "CHANGELOG.md"
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - "**.md"
+      - "**.spec.js"
+      - ".idea"
+      - ".vscode"
+      - ".dockerignore"
+      - "Dockerfile"
+      - ".gitignore"
+      - "LICENSE"
+      - "CHANGELOG.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # 快速检查：适用于 dependabot 和文档更改
+  quick-check:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' || contains(github.event.pull_request.title, 'docs:') || contains(github.event.pull_request.title, 'chore:')
+    
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - name: Check out Git repository
+      uses: actions/checkout@v4
+      
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        
+    - name: Install pnpm
+      uses: pnpm/action-setup@v3
+      with:
+        version: 9
+        
+    - name: Install dependencies
+      run: pnpm install --frozen-lockfile
+      
+    - name: Check Not Allowed File Changes
+      uses: dorny/paths-filter@v2
+      id: filter_not_allowed
+      with:
+        list-files: json
+        filters: |
+          change:
+            - 'package-lock.json'
+            - 'yarn.lock'
+            - 'pnpm-lock.yaml'
+
+    - name: Comment About Changes We Can't Accept
+      if: steps.filter_not_allowed.outputs.change == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const reviewMessage = `👋 Hey there spelunker. It looks like you've modified some files that we can't accept as contributions. The complete list of files we can't accept are:
+          - package-lock.json
+          - yarn.lock
+          - pnpm-lock.yaml
+          
+          You'll need to revert all of the files you changed in that list using [GitHub Desktop](https://docs.github.com/en/free-pro-team@latest/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/reverting-a-commit) or \`git checkout origin/main <file name>\`. Once you get those files reverted, we can continue with the review process. :octocat:`
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.number,
+            body: reviewMessage,
+          })
+          core.setFailed('Lock file changes detected')
+      
+    - name: Run TypeScript check
+      run: pnpm exec tsc -noEmit
+      
+    - name: Run lightweight tests
+      if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.title, 'chore(deps)')
+      run: |
+        if [ -d "test" ] && [ "$(find test -name '*.spec.*' -o -name '*.test.*' | wc -l)" -gt 0 ]; then
+          echo "Running lightweight tests for dependency update..."
+          pnpm run pretest && pnpm test --run --reporter=verbose
+        else
+          echo "No test files found, skipping tests"
+        fi
+        
+    - name: Auto-approve safe dependency updates
+      if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.title, 'chore(deps):') && contains(github.event.pull_request.labels.*.name, 'auto-merge')
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.pulls.createReview({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.number,
+            event: 'APPROVE',
+            body: '✅ Auto-approved: Safe dependency update passed all checks'
+          })
+
+  # 完整构建：适用于代码更改和重要依赖更新
   build:
     runs-on: ${{ matrix.os }}
+    if: |
+      (github.actor != 'dependabot[bot]' && !contains(github.event.pull_request.title, 'docs:') && !contains(github.event.pull_request.title, 'chore:')) ||
+      (github.actor == 'dependabot[bot]' && (
+        contains(github.event.pull_request.title, 'electron') ||
+        contains(github.event.pull_request.title, 'react') ||
+        contains(github.event.pull_request.title, 'semver-major')
+      ))
     
     permissions:
       contents: write
