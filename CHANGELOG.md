@@ -1,3 +1,10 @@
+## [3.8.4](https://github.com/MarkShawn2020/n-clip/compare/v3.8.3...v3.8.4) (2025-07-17)
+
+
+### Bug Fixes
+
+* 🎯 修正logo路径 - 在Contents/而不是Resources/ ([a014a15](https://github.com/MarkShawn2020/n-clip/commit/a014a152dae90762222cc3cc6a9c25fffa44af1e))
+
 ## [3.8.3](https://github.com/MarkShawn2020/n-clip/compare/v3.8.2...v3.8.3) (2025-07-17)
 
 
