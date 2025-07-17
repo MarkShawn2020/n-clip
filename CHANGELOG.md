@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/MarkShawn2020/n-clip/compare/v3.3.1...v3.4.0) (2025-07-17)
+
+
+### Features
+
+* add 'Open Archive Library' option to tray menu ([9875760](https://github.com/MarkShawn2020/n-clip/commit/98757606b896015bc2641779b9a67ff8f0e0a89e))
+
 ## [3.3.1](https://github.com/MarkShawn2020/n-clip/compare/v3.3.0...v3.3.1) (2025-07-17)
 
 # [3.3.0](https://github.com/MarkShawn2020/n-clip/compare/v3.2.3...v3.3.0) (2025-07-17)
