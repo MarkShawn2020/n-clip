@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, clipboard, screen, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, globalShortcut, clipboard, screen, Tray, Menu, nativeImage, dialog, MessageBoxReturnValue } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -544,7 +544,7 @@ function createTray() {
               message: '当前系统状态',
               detail: diagnostics,
               buttons: ['知道了', '复制到剪贴板']
-            }).then((result) => {
+            }).then((result: MessageBoxReturnValue) => {
               if (result.response === 1) {
                 clipboard.writeText(diagnostics)
               }
@@ -711,7 +711,7 @@ function updateTrayMenu() {
               message: '当前系统状态',
               detail: diagnostics,
               buttons: ['知道了', '复制到剪贴板']
-            }).then((result) => {
+            }).then((result: MessageBoxReturnValue) => {
               if (result.response === 1) {
                 clipboard.writeText(diagnostics)
               }
@@ -1747,7 +1747,7 @@ async function checkAndRequestPermissions() {
           message: '如果您已经在系统偏好设置中授权了 N-Clip，但功能仍不工作：',
           detail: '请完全重启应用：\n\n1. 右键点击托盘中的 N-Clip 图标\n2. 选择"退出 N-Clip"\n3. 重新启动 N-Clip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
           buttons: ['知道了', '立即退出应用']
-        }).then((restartResult) => {
+        }).then((restartResult: MessageBoxReturnValue) => {
           if (restartResult.response === 1) {
             app.quit()
           }
