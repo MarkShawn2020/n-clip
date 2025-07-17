@@ -348,25 +348,51 @@ function startClipboardWatcher() {
 
 // 创建系统托盘
 function createTray() {
-  // 创建托盘图标 - 使用简单的文本图标
-  const iconSize = 16
-  const canvas = require('canvas').createCanvas(iconSize, iconSize)
-  const ctx = canvas.getContext('2d')
+  let icon: Electron.NativeImage
   
-  // 绘制简单的剪切板图标
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(2, 2, 12, 12)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(3, 3, 10, 10)
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(4, 6, 8, 1)
-  ctx.fillRect(4, 8, 6, 1)
-  ctx.fillRect(4, 10, 8, 1)
-  
-  const iconBuffer = canvas.toBuffer('image/png')
-  const icon = nativeImage.createFromBuffer(iconBuffer)
+  try {
+    // 方法1：尝试使用现有的favicon作为托盘图标
+    const faviconPath = path.join(process.env.VITE_PUBLIC || '', 'favicon.ico')
+    if (fs.existsSync(faviconPath)) {
+      icon = nativeImage.createFromPath(faviconPath)
+      console.log('Using favicon.ico as tray icon')
+    } else {
+      throw new Error('Favicon not found')
+    }
+  } catch (error) {
+    console.log('Favicon approach failed, creating minimal icon:', error)
+    
+    try {
+      // 方法2：Canvas备用方案（兼容性更好的代码）
+      const iconSize = 16
+      const canvas = require('canvas').createCanvas(iconSize, iconSize)
+      const ctx = canvas.getContext('2d')
+      
+      // 绘制简单的剪切板图标
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(2, 2, 12, 12)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(3, 3, 10, 10)
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(4, 6, 8, 1)
+      ctx.fillRect(4, 8, 6, 1)
+      ctx.fillRect(4, 10, 8, 1)
+      
+      const iconBuffer = canvas.toBuffer('image/png')
+      icon = nativeImage.createFromBuffer(iconBuffer)
+      console.log('Using canvas-generated tray icon')
+    } catch (canvasError) {
+      console.log('Canvas approach failed, using empty icon:', canvasError)
+      // 方法3：创建空图标作为最后手段
+      icon = nativeImage.createEmpty()
+    }
+  }
   
   tray = new Tray(icon)
+  
+  // 检查快捷键状态
+  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+C') || 
+                            globalShortcut.isRegistered('CommandOrControl+Option+C')
   
   // 设置托盘菜单
   const contextMenu = Menu.buildFromTemplate([
@@ -380,7 +406,21 @@ function createTray() {
       label: `Clipboard Items: ${clipboardHistory.length}`,
       enabled: false
     },
+    {
+      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧C)' : '❌ 快捷键未启用',
+      enabled: false
+    },
     { type: 'separator' },
+    ...(hasGlobalShortcuts ? [] : [{
+      label: '启用全局快捷键',
+      click: async () => {
+        const hasPermissions = await checkAndRequestPermissions()
+        if (hasPermissions) {
+          registerGlobalShortcuts()
+          updateTrayMenu() // 刷新菜单
+        }
+      }
+    }, { type: 'separator' as const }]),
     {
       label: 'Recent Items',
       submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
@@ -430,6 +470,10 @@ function createTray() {
 function updateTrayMenu() {
   if (!tray) return
   
+  // 检查快捷键状态
+  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+C') || 
+                            globalShortcut.isRegistered('CommandOrControl+Option+C')
+  
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Open N-Clip',
@@ -441,7 +485,21 @@ function updateTrayMenu() {
       label: `Clipboard Items: ${clipboardHistory.length}`,
       enabled: false
     },
+    {
+      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧C)' : '❌ 快捷键未启用',
+      enabled: false
+    },
     { type: 'separator' },
+    ...(hasGlobalShortcuts ? [] : [{
+      label: '启用全局快捷键',
+      click: async () => {
+        const hasPermissions = await checkAndRequestPermissions()
+        if (hasPermissions) {
+          registerGlobalShortcuts()
+          updateTrayMenu() // 刷新菜单
+        }
+      }
+    }, { type: 'separator' as const }]),
     {
       label: 'Recent Items',
       submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
@@ -719,12 +777,20 @@ function toggleWindow() {
 
 // 注册全局快捷键
 function registerGlobalShortcuts() {
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', toggleWindow)
+  // 修复：使用正确的快捷键 Cmd+Shift+C
+  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+C', toggleWindow)
   
   if (!shortcutRegistered) {
-    console.log('Failed to register global shortcut Cmd+Shift+V')
+    console.log('Failed to register global shortcut Cmd+Shift+C')
+    // 尝试备用快捷键
+    const backupRegistered = globalShortcut.register('CommandOrControl+Option+C', toggleWindow)
+    if (backupRegistered) {
+      console.log('Backup global shortcut Cmd+Option+C registered successfully')
+    } else {
+      console.log('All global shortcuts failed to register - check accessibility permissions')
+    }
   } else {
-    console.log('Global shortcut Cmd+Shift+V registered successfully')
+    console.log('Global shortcut Cmd+Shift+C registered successfully')
   }
 }
 
@@ -1317,6 +1383,48 @@ function registerIpcHandlers() {
   })
 }
 
+// 检查和请求macOS权限
+async function checkAndRequestPermissions() {
+  if (process.platform !== 'darwin') {
+    return true // 非macOS平台直接返回
+  }
+
+  try {
+    // 检查辅助功能权限
+    const { systemPreferences } = require('electron')
+    const hasAccessibilityPermission = systemPreferences.isTrustedAccessibilityClient(false)
+    
+    if (!hasAccessibilityPermission) {
+      console.log('Accessibility permission not granted, requesting...')
+      
+      // 显示权限请求对话框
+      const { dialog } = require('electron')
+      const result = await dialog.showMessageBox({
+        type: 'warning',
+        title: 'N-Clip 需要辅助功能权限',
+        message: 'N-Clip 需要辅助功能权限才能使用全局快捷键功能。',
+        detail: '点击"打开系统偏好设置"将会打开系统偏好设置，请在"安全性与隐私 > 隐私 > 辅助功能"中勾选 N-Clip。',
+        buttons: ['打开系统偏好设置', '稍后设置'],
+        defaultId: 0,
+        cancelId: 1
+      })
+      
+      if (result.response === 0) {
+        // 请求权限（这会打开系统偏好设置）
+        systemPreferences.isTrustedAccessibilityClient(true)
+      }
+      
+      return false
+    }
+    
+    console.log('Accessibility permission already granted')
+    return true
+  } catch (error) {
+    console.error('Error checking permissions:', error)
+    return false
+  }
+}
+
 app.whenReady().then(async () => {
   // 设置应用为辅助应用，不在Dock中显示
   app.dock?.hide()
@@ -1334,8 +1442,19 @@ app.whenReady().then(async () => {
     console.error('Failed to initialize data storage:', error)
   }
   
+  // 检查权限
+  const hasPermissions = await checkAndRequestPermissions()
+  
   registerIpcHandlers()
-  registerGlobalShortcuts()
+  
+  // 只有有权限时才注册全局快捷键
+  if (hasPermissions) {
+    registerGlobalShortcuts()
+    console.log('Global shortcuts registered with permissions')
+  } else {
+    console.log('Global shortcuts skipped - no accessibility permission')
+  }
+  
   createWindow()
   createTray() // 创建系统托盘
   startClipboardWatcher() // 启动剪切板监听
