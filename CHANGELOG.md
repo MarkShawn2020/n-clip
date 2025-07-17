@@ -1,3 +1,11 @@
+## [3.2.3](https://github.com/MarkShawn2020/n-clip/compare/v3.2.2...v3.2.3) (2025-07-17)
+
+
+### Bug Fixes
+
+* add explicit types for dialog callback parameters to resolve TypeScript errors ([2c04231](https://github.com/MarkShawn2020/n-clip/commit/2c0423105f760553896224b327931ad95eb47d13))
+* comprehensive solution for permission and tray issues in release builds ([ab8bd34](https://github.com/MarkShawn2020/n-clip/commit/ab8bd3429329dfe9a91863bfbca451168d13c226))
+
 ## [3.2.2](https://github.com/MarkShawn2020/n-clip/compare/v3.2.1...v3.2.2) (2025-07-17)
 
 
