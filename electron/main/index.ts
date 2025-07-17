@@ -361,15 +361,16 @@ function createTray() {
     try {
         let logoPath: string
         
-        // 开发环境路径
-        if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
-            logoPath = path.join(process.env.VITE_PUBLIC || 'public', 'logo.png')
+        // 开发环境：使用项目根目录的public文件夹
+        if (process.env.VITE_DEV_SERVER_URL) {
+            logoPath = path.join(process.cwd(), 'public', 'logo.png')
         } else {
-            // 生产环境路径
+            // 生产环境：使用resources目录
             logoPath = path.join(process.resourcesPath, 'logo.png')
         }
         
         console.log('尝试加载托盘图标:', logoPath)
+        console.log('文件是否存在:', fs.existsSync(logoPath))
         
         if (fs.existsSync(logoPath)) {
             const tempIcon = nativeImage.createFromPath(logoPath)
@@ -383,8 +384,44 @@ function createTray() {
             throw new Error('Logo 文件不存在')
         }
     } catch (error) {
-        console.log('⚠️  使用系统默认图标:', error instanceof Error ? error.message : 'Unknown error')
-        icon = nativeImage.createEmpty()
+        console.log('⚠️  Logo加载失败，创建简单图标:', error instanceof Error ? error.message : 'Unknown error')
+        
+        // 创建一个简单但可见的图标，而不是空图标
+        try {
+            const size = 16
+            const buffer = Buffer.alloc(size * size * 4) // RGBA
+            
+            // 创建一个简单的紫色圆圈图标
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const centerX = size / 2
+                    const centerY = size / 2
+                    const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
+                    const index = (y * size + x) * 4
+                    
+                    if (distance <= 6) {
+                        // 紫色圆圈
+                        buffer[index] = 147     // R
+                        buffer[index + 1] = 51  // G  
+                        buffer[index + 2] = 234 // B
+                        buffer[index + 3] = 255 // A
+                    } else {
+                        // 透明背景
+                        buffer[index] = 0       // R
+                        buffer[index + 1] = 0   // G
+                        buffer[index + 2] = 0   // B
+                        buffer[index + 3] = 0   // A
+                    }
+                }
+            }
+            
+            icon = nativeImage.createFromBuffer(buffer, {width: size, height: size})
+            console.log('✅ 创建了默认紫色圆圈图标')
+        } catch (fallbackError) {
+            // 最后的备用方案
+            icon = nativeImage.createEmpty()
+            console.log('⚠️  使用空图标作为最后备用方案')
+        }
     }
 
     try {
