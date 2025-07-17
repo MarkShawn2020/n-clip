@@ -1,3 +1,15 @@
+# [3.3.0](https://github.com/MarkShawn2020/n-clip/compare/v3.2.3...v3.3.0) (2025-07-17)
+
+
+### Features
+
+* integrate new logo.svg into tray icon, window icon, and drag functionality ([14e6c19](https://github.com/MarkShawn2020/n-clip/commit/14e6c19ffeb993b42e7cfdf91803b54f6253479f))
+
+
+### Performance Improvements
+
+* add logo ([3e00a1a](https://github.com/MarkShawn2020/n-clip/commit/3e00a1a13d41f5de0e3d5a0711b456c5a4082d3a))
+
 ## [3.2.3](https://github.com/MarkShawn2020/n-clip/compare/v3.2.2...v3.2.3) (2025-07-17)
 
 
