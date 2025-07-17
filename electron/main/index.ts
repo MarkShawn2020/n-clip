@@ -391,8 +391,8 @@ function createTray() {
   tray = new Tray(icon)
   
   // 检查快捷键状态
-  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+C') || 
-                            globalShortcut.isRegistered('CommandOrControl+Option+C')
+  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+V') || 
+                            globalShortcut.isRegistered('CommandOrControl+Option+V')
   
   // 设置托盘菜单
   const contextMenu = Menu.buildFromTemplate([
@@ -407,7 +407,7 @@ function createTray() {
       enabled: false
     },
     {
-      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧C)' : '❌ 快捷键未启用',
+      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧V)' : '❌ 快捷键未启用',
       enabled: false
     },
     { type: 'separator' },
@@ -471,8 +471,8 @@ function updateTrayMenu() {
   if (!tray) return
   
   // 检查快捷键状态
-  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+C') || 
-                            globalShortcut.isRegistered('CommandOrControl+Option+C')
+  const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+V') || 
+                            globalShortcut.isRegistered('CommandOrControl+Option+V')
   
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -486,7 +486,7 @@ function updateTrayMenu() {
       enabled: false
     },
     {
-      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧C)' : '❌ 快捷键未启用',
+      label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧V)' : '❌ 快捷键未启用',
       enabled: false
     },
     { type: 'separator' },
@@ -777,20 +777,20 @@ function toggleWindow() {
 
 // 注册全局快捷键
 function registerGlobalShortcuts() {
-  // 修复：使用正确的快捷键 Cmd+Shift+C
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+C', toggleWindow)
+  // 正确的快捷键：Cmd+Shift+V
+  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', toggleWindow)
   
   if (!shortcutRegistered) {
-    console.log('Failed to register global shortcut Cmd+Shift+C')
+    console.log('Failed to register global shortcut Cmd+Shift+V')
     // 尝试备用快捷键
-    const backupRegistered = globalShortcut.register('CommandOrControl+Option+C', toggleWindow)
+    const backupRegistered = globalShortcut.register('CommandOrControl+Option+V', toggleWindow)
     if (backupRegistered) {
-      console.log('Backup global shortcut Cmd+Option+C registered successfully')
+      console.log('Backup global shortcut Cmd+Option+V registered successfully')
     } else {
       console.log('All global shortcuts failed to register - check accessibility permissions')
     }
   } else {
-    console.log('Global shortcut Cmd+Shift+C registered successfully')
+    console.log('Global shortcut Cmd+Shift+V registered successfully')
   }
 }
 
