@@ -523,16 +523,20 @@ function createTray() {
     const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+V') ||
         globalShortcut.isRegistered('CommandOrControl+Option+V')
 
-    // 设置托盘菜单
+    // 设置清爽的托盘菜单
+    const recentItems = clipboardHistory.slice(0, 3) // 限制为3个最近项目
+    const statusText = `📊 剪贴板 ${clipboardHistory.length} 项 | 收藏 ${archiveItems.length} 项`
+    
     const contextMenu = Menu.buildFromTemplate([
+        // 核心功能区
         {
-            label: '📋 打开剪切板记录',
+            label: '打开剪切板记录',
             click: () => {
                 toggleWindow()
             }
         },
         {
-            label: '📂 打开收藏库',
+            label: '打开收藏库',
             click: async () => {
                 try {
                     console.log('用户从托盘打开收藏库')
@@ -542,146 +546,161 @@ function createTray() {
                 }
             }
         },
-        { type: 'separator' },
-        {
-            label: `剪贴板项目：${clipboardHistory.length}`,
-            enabled: false
-        },
-        {
-            label: `收藏项目：${archiveItems.length}`,
-            enabled: false
-        },
-        {
-            label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧V)' : '❌ 快捷键未启用',
-            enabled: false
-        },
-        {type: 'separator'},
-        ...(hasGlobalShortcuts ? [] : [{
-            label: '🔧 重新初始化快捷键',
-            click: async () => {
-                console.log('用户手动请求重新初始化快捷键')
-                const success = await recheckPermissionsAndReinitialize()
-                updateTrayMenu() // 刷新菜单
-
-                // 显示结果
-                const {dialog} = require('electron')
-                if (success) {
-                    await dialog.showMessageBox({
-                        type: 'info',
-                        title: '重新初始化完成',
-                        message: '快捷键和权限已重新初始化',
-                        detail: '如果问题仍然存在，请尝试完全重启应用。'
-                    })
-                } else {
-                    await dialog.showMessageBox({
-                        type: 'warning',
-                        title: '重新初始化失败',
-                        message: '无法重新初始化快捷键',
-                        detail: '请检查辅助功能权限设置，或尝试重启应用。'
-                    })
+        
+        // 最近项目区（仅在有项目时显示）
+        ...(recentItems.length > 0 ? [
+            { type: 'separator' as const },
+            ...recentItems.map((item, index) => ({
+                label: `${index + 1}. ${(item.preview || item.content).substring(0, 35)}${(item.preview || item.content).length > 35 ? '...' : ''}`,
+                click: () => {
+                    clipboard.writeText(item.content)
+                    console.log('Copied to clipboard:', item.preview)
                 }
-            }
-        }, {type: 'separator' as const}]),
-        // 诊断菜单
+            }))
+        ] : []),
+        
+        // 状态信息区
+        { type: 'separator' as const },
         {
-            label: '🩺 系统诊断',
+            label: statusText,
+            enabled: false
+        },
+        {
+            label: hasGlobalShortcuts ? '✅ 快捷键 ⌘⇧V' : '❌ 快捷键未启用',
+            enabled: false
+        },
+        
+        // 管理功能区
+        { type: 'separator' as const },
+        {
+            label: '管理',
             submenu: [
                 {
-                    label: '显示诊断信息',
-                    click: async () => {
-                        const {dialog} = require('electron')
-
-                        // 收集诊断信息
-                        const diagnostics = await getDiagnosticInfo()
-
-                        await dialog.showMessageBox({
-                            type: 'info',
-                            title: 'N-Clip 系统诊断',
-                            message: '当前系统状态',
-                            detail: diagnostics,
-                            buttons: ['知道了', '复制到剪贴板']
-                        }).then((result: MessageBoxReturnValue) => {
-                            if (result.response === 1) {
-                                clipboard.writeText(diagnostics)
-                            }
-                        })
+                    label: '清除历史记录',
+                    click: () => {
+                        clipboardHistory = []
+                        updateTrayMenu()
+                        if (win) {
+                            win?.webContents.send('clipboard:history-updated', clipboardHistory)
+                        }
                     }
                 },
                 {
-                    label: '测试快捷键',
-                    click: () => {
-                        console.log('用户手动测试快捷键')
-                        toggleWindow()
-                    }
+                    label: '偏好设置...',
+                    enabled: false // 暂时禁用
                 },
-                {
-                    label: '重新创建托盘',
-                    click: () => {
-                        try {
-                            if (tray) {
-                                tray.destroy()
-                                tray = null
-                            }
-                            createTray()
+                ...(hasGlobalShortcuts ? [] : [
+                    { type: 'separator' as const },
+                    {
+                        label: '重新初始化快捷键',
+                        click: async () => {
+                            console.log('用户手动请求重新初始化快捷键')
+                            const success = await recheckPermissionsAndReinitialize()
                             updateTrayMenu()
-                            console.log('托盘已重新创建')
-                        } catch (error) {
-                            console.error('重新创建托盘失败:', error)
-                        }
-                    }
-                },
-                {type: 'separator'},
-                {
-                    label: '完全重启应用',
-                    click: async () => {
-                        const {dialog} = require('electron')
-                        const result = await dialog.showMessageBox({
-                            type: 'question',
-                            title: '重启应用',
-                            message: '确定要重启 N-Clip 应用吗？',
-                            detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
-                            buttons: ['重启', '取消'],
-                            defaultId: 0,
-                            cancelId: 1
-                        })
 
-                        if (result.response === 0) {
-                            app.relaunch()
-                            app.quit()
+                            const {dialog} = require('electron')
+                            if (success) {
+                                await dialog.showMessageBox({
+                                    type: 'info',
+                                    title: '重新初始化完成',
+                                    message: '快捷键和权限已重新初始化',
+                                    detail: '如果问题仍然存在，请尝试完全重启应用。'
+                                })
+                            } else {
+                                await dialog.showMessageBox({
+                                    type: 'warning',
+                                    title: '重新初始化失败',
+                                    message: '无法重新初始化快捷键',
+                                    detail: '请检查辅助功能权限设置，或尝试重启应用。'
+                                })
+                            }
                         }
                     }
+                ]),
+                { type: 'separator' as const },
+                {
+                    label: '系统诊断',
+                    submenu: [
+                        {
+                            label: '显示诊断信息',
+                            click: async () => {
+                                const {dialog} = require('electron')
+                                const diagnostics = await getDiagnosticInfo()
+
+                                await dialog.showMessageBox({
+                                    type: 'info',
+                                    title: 'N-Clip 系统诊断',
+                                    message: '当前系统状态',
+                                    detail: diagnostics,
+                                    buttons: ['知道了', '复制到剪贴板']
+                                }).then((result: MessageBoxReturnValue) => {
+                                    if (result.response === 1) {
+                                        clipboard.writeText(diagnostics)
+                                    }
+                                })
+                            }
+                        },
+                        {
+                            label: '测试快捷键',
+                            click: () => {
+                                console.log('用户手动测试快捷键')
+                                toggleWindow()
+                            }
+                        },
+                        {
+                            label: '重新创建托盘',
+                            click: () => {
+                                try {
+                                    if (tray) {
+                                        tray.destroy()
+                                        tray = null
+                                    }
+                                    createTray()
+                                    updateTrayMenu()
+                                    console.log('托盘已重新创建')
+                                } catch (error) {
+                                    console.error('重新创建托盘失败:', error)
+                                }
+                            }
+                        },
+                        { type: 'separator' as const },
+                        {
+                            label: '完全重启应用',
+                            click: async () => {
+                                const {dialog} = require('electron')
+                                const result = await dialog.showMessageBox({
+                                    type: 'question',
+                                    title: '重启应用',
+                                    message: '确定要重启 N-Clip 应用吗？',
+                                    detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
+                                    buttons: ['重启', '取消'],
+                                    defaultId: 0,
+                                    cancelId: 1
+                                })
+
+                                if (result.response === 0) {
+                                    app.relaunch()
+                                    app.quit()
+                                }
+                            }
+                        }
+                    ]
                 }
             ]
         },
-        {type: 'separator'},
+        
+        // 退出功能
+        { type: 'separator' as const },
         {
-            label: '📝 最近项目',
-            submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
-                label: `${index + 1}. ${item.preview || item.content}`.substring(0, 50),
-                click: () => {
-                    clipboard.writeText(item.content)
-                }
-            }))
-        },
-        {type: 'separator'},
-        {
-            label: '⚙️ 偏好设置...',
-            enabled: false // 暂时禁用
-        },
-        {
-            label: '🚪 退出 N-Clip',
+            label: '退出 N-Clip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
-                // 停止剪切板监听
-                // 清理所有快捷键
                 unregisterNavigationShortcuts()
                 globalShortcut.unregisterAll()
-                // 销毁托盘
                 if (tray) {
                     tray.destroy()
                     tray = null
                 }
-                // 设置退出标志并强制退出应用
                 (app as any).isQuitting = true
                 app.exit(0)
             }
@@ -707,15 +726,20 @@ function updateTrayMenu() {
     const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+V') ||
         globalShortcut.isRegistered('CommandOrControl+Option+V')
 
+    // 设置清爽的托盘菜单
+    const recentItems = clipboardHistory.slice(0, 3) // 限制为3个最近项目
+    const statusText = `📊 剪贴板 ${clipboardHistory.length} 项 | 收藏 ${archiveItems.length} 项`
+    
     const contextMenu = Menu.buildFromTemplate([
+        // 核心功能区
         {
-            label: '📋 打开剪切板记录',
+            label: '打开剪切板记录',
             click: () => {
                 toggleWindow()
             }
         },
         {
-            label: '📂 打开收藏库',
+            label: '打开收藏库',
             click: async () => {
                 try {
                     console.log('用户从托盘打开收藏库')
@@ -725,158 +749,161 @@ function updateTrayMenu() {
                 }
             }
         },
-        { type: 'separator' },
-        {
-            label: `剪贴板项目：${clipboardHistory.length}`,
-            enabled: false
-        },
-        {
-            label: `收藏项目：${archiveItems.length}`,
-            enabled: false
-        },
-        {
-            label: hasGlobalShortcuts ? '✅ 快捷键已启用 (⌘⇧V)' : '❌ 快捷键未启用',
-            enabled: false
-        },
-        {type: 'separator'},
-        ...(hasGlobalShortcuts ? [] : [{
-            label: '🔧 重新初始化快捷键',
-            click: async () => {
-                console.log('用户手动请求重新初始化快捷键')
-                const success = await recheckPermissionsAndReinitialize()
-                updateTrayMenu() // 刷新菜单
-
-                // 显示结果
-                const {dialog} = require('electron')
-                if (success) {
-                    await dialog.showMessageBox({
-                        type: 'info',
-                        title: '重新初始化完成',
-                        message: '快捷键和权限已重新初始化',
-                        detail: '如果问题仍然存在，请尝试完全重启应用。'
-                    })
-                } else {
-                    await dialog.showMessageBox({
-                        type: 'warning',
-                        title: '重新初始化失败',
-                        message: '无法重新初始化快捷键',
-                        detail: '请检查辅助功能权限设置，或尝试重启应用。'
-                    })
-                }
-            }
-        }, {type: 'separator' as const}]),
-        // 诊断菜单
-        {
-            label: '🩺 系统诊断',
-            submenu: [
-                {
-                    label: '显示诊断信息',
-                    click: async () => {
-                        const {dialog} = require('electron')
-
-                        // 收集诊断信息
-                        const diagnostics = await getDiagnosticInfo()
-
-                        await dialog.showMessageBox({
-                            type: 'info',
-                            title: 'N-Clip 系统诊断',
-                            message: '当前系统状态',
-                            detail: diagnostics,
-                            buttons: ['知道了', '复制到剪贴板']
-                        }).then((result: MessageBoxReturnValue) => {
-                            if (result.response === 1) {
-                                clipboard.writeText(diagnostics)
-                            }
-                        })
-                    }
-                },
-                {
-                    label: '测试快捷键',
-                    click: () => {
-                        console.log('用户手动测试快捷键')
-                        toggleWindow()
-                    }
-                },
-                {
-                    label: '重新创建托盘',
-                    click: () => {
-                        try {
-                            if (tray) {
-                                tray.destroy()
-                                tray = null
-                            }
-                            createTray()
-                            updateTrayMenu()
-                            console.log('托盘已重新创建')
-                        } catch (error) {
-                            console.error('重新创建托盘失败:', error)
-                        }
-                    }
-                },
-                {type: 'separator'},
-                {
-                    label: '完全重启应用',
-                    click: async () => {
-                        const {dialog} = require('electron')
-                        const result = await dialog.showMessageBox({
-                            type: 'question',
-                            title: '重启应用',
-                            message: '确定要重启 N-Clip 应用吗？',
-                            detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
-                            buttons: ['重启', '取消'],
-                            defaultId: 0,
-                            cancelId: 1
-                        })
-
-                        if (result.response === 0) {
-                            app.relaunch()
-                            app.quit()
-                        }
-                    }
-                }
-            ]
-        },
-        {type: 'separator'},
-        {
-            label: '📝 最近项目',
-            submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
-                label: `${index + 1}. ${(item.preview || item.content).substring(0, 40)}${(item.preview || item.content).length > 40 ? '...' : ''}`,
+        
+        // 最近项目区（仅在有项目时显示）
+        ...(recentItems.length > 0 ? [
+            { type: 'separator' as const },
+            ...recentItems.map((item, index) => ({
+                label: `${index + 1}. ${(item.preview || item.content).substring(0, 35)}${(item.preview || item.content).length > 35 ? '...' : ''}`,
                 click: () => {
                     clipboard.writeText(item.content)
                     console.log('Copied to clipboard:', item.preview)
                 }
             }))
-        },
-        {type: 'separator'},
+        ] : []),
+        
+        // 状态信息区
+        { type: 'separator' as const },
         {
-            label: '🗑️ 清除历史',
-            click: () => {
-                clipboardHistory = []
-                updateTrayMenu()
-                if (win) {
-                    win?.webContents.send('clipboard:history-updated', clipboardHistory)
+            label: statusText,
+            enabled: false
+        },
+        {
+            label: hasGlobalShortcuts ? '✅ 快捷键 ⌘⇧V' : '❌ 快捷键未启用',
+            enabled: false
+        },
+        
+        // 管理功能区
+        { type: 'separator' as const },
+        {
+            label: '管理',
+            submenu: [
+                {
+                    label: '清除历史记录',
+                    click: () => {
+                        clipboardHistory = []
+                        updateTrayMenu()
+                        if (win) {
+                            win?.webContents.send('clipboard:history-updated', clipboardHistory)
+                        }
+                    }
+                },
+                {
+                    label: '偏好设置...',
+                    enabled: false // 暂时禁用
+                },
+                ...(hasGlobalShortcuts ? [] : [
+                    { type: 'separator' as const },
+                    {
+                        label: '重新初始化快捷键',
+                        click: async () => {
+                            console.log('用户手动请求重新初始化快捷键')
+                            const success = await recheckPermissionsAndReinitialize()
+                            updateTrayMenu()
+
+                            const {dialog} = require('electron')
+                            if (success) {
+                                await dialog.showMessageBox({
+                                    type: 'info',
+                                    title: '重新初始化完成',
+                                    message: '快捷键和权限已重新初始化',
+                                    detail: '如果问题仍然存在，请尝试完全重启应用。'
+                                })
+                            } else {
+                                await dialog.showMessageBox({
+                                    type: 'warning',
+                                    title: '重新初始化失败',
+                                    message: '无法重新初始化快捷键',
+                                    detail: '请检查辅助功能权限设置，或尝试重启应用。'
+                                })
+                            }
+                        }
+                    }
+                ]),
+                { type: 'separator' as const },
+                {
+                    label: '系统诊断',
+                    submenu: [
+                        {
+                            label: '显示诊断信息',
+                            click: async () => {
+                                const {dialog} = require('electron')
+                                const diagnostics = await getDiagnosticInfo()
+
+                                await dialog.showMessageBox({
+                                    type: 'info',
+                                    title: 'N-Clip 系统诊断',
+                                    message: '当前系统状态',
+                                    detail: diagnostics,
+                                    buttons: ['知道了', '复制到剪贴板']
+                                }).then((result: MessageBoxReturnValue) => {
+                                    if (result.response === 1) {
+                                        clipboard.writeText(diagnostics)
+                                    }
+                                })
+                            }
+                        },
+                        {
+                            label: '测试快捷键',
+                            click: () => {
+                                console.log('用户手动测试快捷键')
+                                toggleWindow()
+                            }
+                        },
+                        {
+                            label: '重新创建托盘',
+                            click: () => {
+                                try {
+                                    if (tray) {
+                                        tray.destroy()
+                                        tray = null
+                                    }
+                                    createTray()
+                                    updateTrayMenu()
+                                    console.log('托盘已重新创建')
+                                } catch (error) {
+                                    console.error('重新创建托盘失败:', error)
+                                }
+                            }
+                        },
+                        { type: 'separator' as const },
+                        {
+                            label: '完全重启应用',
+                            click: async () => {
+                                const {dialog} = require('electron')
+                                const result = await dialog.showMessageBox({
+                                    type: 'question',
+                                    title: '重启应用',
+                                    message: '确定要重启 N-Clip 应用吗？',
+                                    detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
+                                    buttons: ['重启', '取消'],
+                                    defaultId: 0,
+                                    cancelId: 1
+                                })
+
+                                if (result.response === 0) {
+                                    app.relaunch()
+                                    app.quit()
+                                }
+                            }
+                        }
+                    ]
                 }
-            }
+            ]
         },
+        
+        // 退出功能
+        { type: 'separator' as const },
         {
-            label: '⚙️ 偏好设置...',
-            enabled: false // 暂时禁用
-        },
-        {type: 'separator'},
-        {
-            label: '🚪 退出 N-Clip',
+            label: '退出 N-Clip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
-                // 停止剪切板监听
-                // 清理所有快捷键
                 unregisterNavigationShortcuts()
                 globalShortcut.unregisterAll()
-                // 销毁托盘
                 if (tray) {
                     tray.destroy()
                     tray = null
                 }
-                // 设置退出标志并强制退出应用
                 (app as any).isQuitting = true
                 app.exit(0)
             }
