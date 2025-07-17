@@ -92,65 +92,59 @@ function initDataStorage() {
     }
 }
 
-// 加载剪切板历史数据
-function loadClipboardHistory() {
+// 加载剪切板历史数据 - 异步版本
+async function loadClipboardHistory() {
     try {
         if (fs.existsSync(CLIPBOARD_DATA_FILE)) {
-            const data = fs.readFileSync(CLIPBOARD_DATA_FILE, 'utf8')
+            const data = await fs.promises.readFile(CLIPBOARD_DATA_FILE, 'utf8')
             const items = JSON.parse(data) as ClipboardItem[]
             clipboardHistory = items || []
             console.log(`Loaded ${clipboardHistory.length} clipboard items from storage`)
         } else {
             console.log('No existing clipboard history file found')
         }
-        return Promise.resolve()
     } catch (error) {
         console.error('Failed to load clipboard history:', error)
         clipboardHistory = []
-        return Promise.resolve()
     }
 }
 
-// 加载档案库数据
-function loadArchiveItems() {
+// 加载档案库数据 - 异步版本
+async function loadArchiveItems() {
     try {
         if (fs.existsSync(ARCHIVE_DATA_FILE)) {
-            const data = fs.readFileSync(ARCHIVE_DATA_FILE, 'utf8')
+            const data = await fs.promises.readFile(ARCHIVE_DATA_FILE, 'utf8')
             const items = JSON.parse(data) as ArchiveItem[]
             archiveItems = items || []
             console.log(`Loaded ${archiveItems.length} archive items from storage`)
         } else {
             console.log('No existing archive data file found')
         }
-        return Promise.resolve()
     } catch (error) {
         console.error('Failed to load archive items:', error)
         archiveItems = []
-        return Promise.resolve()
     }
 }
 
-// 保存剪切板历史到文件
-function saveClipboardHistory() {
+// 保存剪切板历史到文件 - 异步版本
+async function saveClipboardHistory() {
     try {
         const data = JSON.stringify(clipboardHistory, null, 2)
-        fs.writeFileSync(CLIPBOARD_DATA_FILE, data, 'utf8')
-        return Promise.resolve()
+        await fs.promises.writeFile(CLIPBOARD_DATA_FILE, data, 'utf8')
     } catch (error) {
         console.error('Failed to save clipboard history:', error)
-        return Promise.reject(error)
+        throw error
     }
 }
 
-// 保存档案库数据到文件
-function saveArchiveItems() {
+// 保存档案库数据到文件 - 异步版本
+async function saveArchiveItems() {
     try {
         const data = JSON.stringify(archiveItems, null, 2)
-        fs.writeFileSync(ARCHIVE_DATA_FILE, data, 'utf8')
-        return Promise.resolve()
+        await fs.promises.writeFile(ARCHIVE_DATA_FILE, data, 'utf8')
     } catch (error) {
         console.error('Failed to save archive items:', error)
-        return Promise.reject(error)
+        throw error
     }
 }
 
@@ -358,162 +352,35 @@ function startClipboardWatcher() {
     }, 1000) // 每秒检查一次
 }
 
-// 强化的系统托盘创建
+// 优化的系统托盘创建 - 直接使用预定义路径
 function createTray() {
-    console.log('=== 托盘图标创建诊断 ===')
-    let icon: Electron.NativeImage | null = null
-    let iconMethod = 'none'
+    console.log('=== 托盘图标创建 (优化版) ===')
+    let icon: Electron.NativeImage
 
-    // 方法0：直接使用 logo.png 文件
+    // 直接使用 logo.png，如果不存在就使用系统默认图标
     try {
-        const possibleLogoPaths = [
-            path.join(process.env.VITE_PUBLIC || '', 'logo.png'),
-            path.join(__dirname, '../../public/logo.png'),
-            path.join(__dirname, '../../../public/logo.png'),
-            path.join(process.resourcesPath, 'logo.png'),
-        ]
-
-        for (const logoPath of possibleLogoPaths) {
-            console.log('尝试 logo.png 路径:', logoPath)
-            if (fs.existsSync(logoPath)) {
-                const tempIcon = nativeImage.createFromPath(logoPath)
-                if (!tempIcon.isEmpty()) {
-                    // 为托盘调整大小（16x16）
-                    icon = tempIcon.resize({width: 16, height: 16})
-                    iconMethod = `logo.png: ${logoPath}`
-                    console.log('✅ 成功使用 logo.png 作为托盘图标:', logoPath)
-                    break
-                }
-            }
-        }
-    } catch (logoError) {
-        console.log('❌ Logo.png 加载失败:', logoError)
-    }
-
-    // 方法1：尝试使用应用内置图标（备用）
-    if (!icon) {
-        try {
-            const possiblePaths = [
-                path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
-                path.join(__dirname, '../../public/favicon.ico'),
-                path.join(__dirname, '../../../public/favicon.ico'),
-                path.join(process.resourcesPath, 'favicon.ico'),
-            ]
-
-            for (const iconPath of possiblePaths) {
-                console.log('尝试 favicon.ico 路径:', iconPath)
-                if (fs.existsSync(iconPath)) {
-                    const tempIcon = nativeImage.createFromPath(iconPath)
-                    if (!tempIcon.isEmpty()) {
-                        icon = tempIcon
-                        iconMethod = `favicon.ico: ${iconPath}`
-                        console.log('✅ 成功使用 favicon.ico 作为托盘图标:', iconPath)
-                        break
-                    }
-                }
-            }
-        } catch (error) {
-            console.log('❌ 内置图标方法失败:', error)
-        }
-    }
-
-    // 方法2：尝试 Canvas 生成（仅在方法1失败时）
-    if (!icon) {
-        try {
-            const canvas = require('canvas')
-            console.log('尝试使用 Canvas 生成图标...')
-
-            const iconSize = 16
-            const canvasElement = canvas.createCanvas(iconSize, iconSize)
-            const ctx = canvasElement.getContext('2d')
-
-            // 绘制简单但可见的图标
-            ctx.fillStyle = '#000000'
-            ctx.fillRect(0, 0, iconSize, iconSize)
-            ctx.fillStyle = '#ffffff'
-            ctx.fillRect(1, 1, iconSize - 2, iconSize - 2)
-            ctx.fillStyle = '#007AFF'  // 蓝色，更容易识别
-            ctx.fillRect(3, 4, iconSize - 6, 2)
-            ctx.fillRect(3, 7, iconSize - 8, 2)
-            ctx.fillRect(3, 10, iconSize - 6, 2)
-
-            const iconBuffer = canvasElement.toBuffer('image/png')
-            const tempIcon = nativeImage.createFromBuffer(iconBuffer)
+        // 生产环境中，logo.png 应该在 resources 目录下
+        const logoPath = path.join(process.resourcesPath, 'logo.png')
+        
+        if (fs.existsSync(logoPath)) {
+            const tempIcon = nativeImage.createFromPath(logoPath)
             if (!tempIcon.isEmpty()) {
-                icon = tempIcon
-                iconMethod = 'canvas-generated'
-                console.log('✅ 成功使用 Canvas 生成托盘图标')
+                icon = tempIcon.resize({width: 16, height: 16})
+                console.log('✅ 成功使用 logo.png 作为托盘图标')
+            } else {
+                throw new Error('Logo 图标为空')
             }
-        } catch (canvasError) {
-            console.log('❌ Canvas 方法失败:', canvasError)
+        } else {
+            throw new Error('Logo 文件不存在')
         }
-    }
-
-    // 方法3：创建基本的像素图标
-    if (!icon) {
-        try {
-            console.log('尝试创建基本像素图标...')
-            // 创建一个简单的 16x16 像素的图标
-            const size = 16
-            const buffer = Buffer.alloc(size * size * 4) // RGBA
-
-            // 填充一个简单的图案
-            for (let y = 0; y < size; y++) {
-                for (let x = 0; x < size; x++) {
-                    const index = (y * size + x) * 4
-                    if (x === 0 || y === 0 || x === size - 1 || y === size - 1) {
-                        // 边框 - 黑色
-                        buffer[index] = 0     // R
-                        buffer[index + 1] = 0 // G
-                        buffer[index + 2] = 0 // B
-                        buffer[index + 3] = 255 // A
-                    } else if ((x > 2 && x < size - 3) && (y === 4 || y === 7 || y === 10)) {
-                        // 横线 - 蓝色
-                        buffer[index] = 0     // R
-                        buffer[index + 1] = 122 // G
-                        buffer[index + 2] = 255 // B
-                        buffer[index + 3] = 255 // A
-                    } else {
-                        // 背景 - 白色
-                        buffer[index] = 255   // R
-                        buffer[index + 1] = 255 // G
-                        buffer[index + 2] = 255 // B
-                        buffer[index + 3] = 255 // A
-                    }
-                }
-            }
-
-            const tempIcon = nativeImage.createFromBuffer(buffer, {width: size, height: size})
-            if (!tempIcon.isEmpty()) {
-                icon = tempIcon
-                iconMethod = 'pixel-buffer'
-                console.log('✅ 成功创建像素缓冲图标')
-            }
-        } catch (bufferError) {
-            console.log('❌ 像素缓冲方法失败:', bufferError)
-        }
-    }
-
-    // 方法4：最后的备用方案 - 系统默认图标
-    if (!icon) {
-        console.log('⚠️  所有图标创建方法都失败，使用系统默认方案')
-        try {
-            // 在 macOS 上，即使是空图标也应该显示一个默认的图标
-            icon = nativeImage.createEmpty()
-            iconMethod = 'system-default'
-        } catch (error) {
-            console.error('❌ 连系统默认图标都创建失败:', error)
-            throw new Error('无法创建任何形式的托盘图标')
-        }
+    } catch (error) {
+        console.log('⚠️  使用系统默认图标:', error instanceof Error ? error.message : 'Unknown error')
+        icon = nativeImage.createEmpty()
     }
 
     try {
-        tray = new Tray(icon!)
-        console.log(`✅ 托盘创建成功，使用方法: ${iconMethod}`)
-        console.log('托盘对象信息:', {
-            isDestroyed: tray.isDestroyed(),
-            title: tray.getTitle?.() || 'N/A'
-        })
+        tray = new Tray(icon)
+        console.log('✅ 托盘创建成功')
     } catch (trayError) {
         console.error('❌ 托盘创建失败:', trayError)
         throw trayError
@@ -1984,34 +1851,40 @@ app.whenReady().then(async () => {
     app.dock?.hide()
 
     try {
-        // 初始化数据存储
-        await initDataStorage()
+        // 并行初始化关键组件
+        const [_, hasPermissions] = await Promise.all([
+            initDataStorage(),
+            checkAndRequestPermissions()
+        ])
 
-        // 加载历史数据
-        await loadClipboardHistory()
-        await loadArchiveItems()
+        // 注册IPC处理器（必须在早期完成）
+        registerIpcHandlers()
 
-        console.log('Data storage initialization completed')
+        // 只有有权限时才注册全局快捷键
+        if (hasPermissions) {
+            registerGlobalShortcuts()
+            console.log('Global shortcuts registered with permissions')
+        } else {
+            console.log('Global shortcuts skipped - no accessibility permission')
+        }
+
+        // 创建窗口（优先级最高）
+        createWindow()
+
+        // 并行完成次要初始化任务
+        await Promise.all([
+            loadClipboardHistory(),
+            loadArchiveItems()
+        ])
+
+        // 创建托盘和启动监听器
+        createTray()
+        startClipboardWatcher()
+
+        console.log('Application startup completed')
     } catch (error) {
-        console.error('Failed to initialize data storage:', error)
+        console.error('Failed to initialize application:', error)
     }
-
-    // 检查权限
-    const hasPermissions = await checkAndRequestPermissions()
-
-    registerIpcHandlers()
-
-    // 只有有权限时才注册全局快捷键
-    if (hasPermissions) {
-        registerGlobalShortcuts()
-        console.log('Global shortcuts registered with permissions')
-    } else {
-        console.log('Global shortcuts skipped - no accessibility permission')
-    }
-
-    createWindow()
-    createTray() // 创建系统托盘
-    startClipboardWatcher() // 启动剪切板监听
 
     // 监听命令行退出信号
     process.on('SIGINT', () => {

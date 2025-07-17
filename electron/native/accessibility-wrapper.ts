@@ -75,15 +75,32 @@ function loadAccessibilityModule(): AccessibilityModule | null {
   }
 }
 
-// 加载模块
-const nativeModule = loadAccessibilityModule()
+// 延迟加载的原生模块引用
+let nativeModule: AccessibilityModule | null = null
 
-if (!nativeModule) {
-  throw new Error('Accessibility module is required but could not be loaded')
+// 获取或加载原生模块
+function getNativeModule(): AccessibilityModule {
+  if (!nativeModule) {
+    nativeModule = loadAccessibilityModule()
+    if (!nativeModule) {
+      throw new Error('Accessibility module is required but could not be loaded')
+    }
+  }
+  return nativeModule
 }
 
 // 导出包装器
-export const accessibilityModule: AccessibilityModule = nativeModule
+export const accessibilityModule: AccessibilityModule = {
+  checkAccessibilityPermission: () => getNativeModule().checkAccessibilityPermission(),
+  requestAccessibilityPermission: () => getNativeModule().requestAccessibilityPermission(),
+  getFocusedElement: () => getNativeModule().getFocusedElement(),
+  insertTextToFocusedElement: (text: string) => getNativeModule().insertTextToFocusedElement(text),
+  getFocusedAppInfo: () => getNativeModule().getFocusedAppInfo(),
+  simulatePasteKeystroke: () => getNativeModule().simulatePasteKeystroke(),
+  handleMouseEventWithoutFocus: (x: number, y: number, eventType: string) => getNativeModule().handleMouseEventWithoutFocus(x, y, eventType),
+  getElementAtPosition: (x: number, y: number) => getNativeModule().getElementAtPosition(x, y),
+  performElementAction: (x: number, y: number, action: string) => getNativeModule().performElementAction(x, y, action)
+}
 
 // 导出单独的功能函数
 export const checkAccessibilityPermission = (): boolean => {
