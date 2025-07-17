@@ -357,10 +357,19 @@ function createTray() {
     console.log('=== 托盘图标创建 (优化版) ===')
     let icon: Electron.NativeImage
 
-    // 直接使用 logo.png，如果不存在就使用系统默认图标
+    // 优化的logo路径查找 - 支持开发和生产环境
     try {
-        // 生产环境中，logo.png 应该在 resources 目录下
-        const logoPath = path.join(process.resourcesPath, 'logo.png')
+        let logoPath: string
+        
+        // 开发环境路径
+        if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
+            logoPath = path.join(process.env.VITE_PUBLIC || 'public', 'logo.png')
+        } else {
+            // 生产环境路径
+            logoPath = path.join(process.resourcesPath, 'logo.png')
+        }
+        
+        console.log('尝试加载托盘图标:', logoPath)
         
         if (fs.existsSync(logoPath)) {
             const tempIcon = nativeImage.createFromPath(logoPath)
