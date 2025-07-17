@@ -1,3 +1,10 @@
+# [3.6.0](https://github.com/MarkShawn2020/n-clip/compare/v3.5.1...v3.6.0) (2025-07-17)
+
+
+### Features
+
+* redesign tray menu for cleaner user experience ([a05f3ff](https://github.com/MarkShawn2020/n-clip/commit/a05f3ff035bc860002a5982bc3f2f55bce15dbb1))
+
 ## [3.5.1](https://github.com/MarkShawn2020/n-clip/compare/v3.5.0...v3.5.1) (2025-07-17)
 
 # [3.5.0](https://github.com/MarkShawn2020/n-clip/compare/v3.4.0...v3.5.0) (2025-07-17)
