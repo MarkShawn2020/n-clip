@@ -1,3 +1,10 @@
+## [3.8.7](https://github.com/MarkShawn2020/n-clip/compare/v3.8.6...v3.8.7) (2025-07-17)
+
+
+### Bug Fixes
+
+* 🔧 修复CI版本号不匹配问题 ([fde5f7a](https://github.com/MarkShawn2020/n-clip/commit/fde5f7ab3a7127e41763c22b4a535b4c4900070d))
+
 ## [3.8.6](https://github.com/MarkShawn2020/n-clip/compare/v3.8.5...v3.8.6) (2025-07-17)
 
 
