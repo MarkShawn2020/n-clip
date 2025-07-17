@@ -373,23 +373,37 @@ function createTray() {
         if (process.env.VITE_DEV_SERVER_URL) {
             logoPath = path.join(process.cwd(), 'public', 'logo.png')
         } else {
-            // 生产环境：使用resources目录
-            logoPath = path.join(process.resourcesPath, 'logo.png')
+            // 生产环境：多个路径尝试
+            const possiblePaths = [
+                path.join(process.resourcesPath, 'logo.png'),                    // 标准Resources位置
+                path.join(process.resourcesPath, 'app.asar.unpacked', 'logo.png'), // asar unpacked
+                path.join(__dirname, '../../../logo.png'),                      // 相对于dist-electron
+                path.join(process.resourcesPath, 'app', 'logo.png'),           // app目录
+                path.join(process.resourcesPath, '..', 'logo.png'),            // 上级目录
+            ]
+            
+            // 尝试每个路径
+            for (const testPath of possiblePaths) {
+                console.log(`测试路径: ${testPath}, 存在: ${fs.existsSync(testPath)}`)
+                if (fs.existsSync(testPath)) {
+                    logoPath = testPath
+                    break
+                }
+            }
+            
+            if (!logoPath!) {
+                throw new Error('在所有可能路径中都找不到logo.png')
+            }
         }
         
-        console.log('尝试加载托盘图标:', logoPath)
-        console.log('文件是否存在:', fs.existsSync(logoPath))
+        console.log('最终使用托盘图标路径:', logoPath)
         
-        if (fs.existsSync(logoPath)) {
-            const tempIcon = nativeImage.createFromPath(logoPath)
-            if (!tempIcon.isEmpty()) {
-                icon = tempIcon.resize({width: 16, height: 16})
-                console.log('✅ 成功使用 logo.png 作为托盘图标')
-            } else {
-                throw new Error('Logo 图标为空')
-            }
+        const tempIcon = nativeImage.createFromPath(logoPath)
+        if (!tempIcon.isEmpty()) {
+            icon = tempIcon.resize({width: 16, height: 16})
+            console.log('✅ 成功使用 logo.png 作为托盘图标')
         } else {
-            throw new Error('Logo 文件不存在')
+            throw new Error('Logo 图标为空')
         }
     } catch (error) {
         console.log('⚠️  Logo加载失败，创建简单图标:', error instanceof Error ? error.message : 'Unknown error')
@@ -1787,40 +1801,52 @@ async function checkAndRequestPermissions() {
         console.log('辅助功能权限状态:', hasAccessibilityPermission)
 
         if (!hasAccessibilityPermission) {
-            console.log('辅助功能权限未授予，显示授权引导...')
+            console.log('辅助功能权限未授予，智能处理...')
 
-            // 显示权限请求对话框
-            const {dialog} = require('electron')
-            const result = await dialog.showMessageBox({
-                type: 'warning',
-                title: 'N-Clip 需要辅助功能权限',
-                message: 'N-Clip 需要辅助功能权限才能使用全局快捷键功能。',
-                detail: '点击"打开系统偏好设置"后：\n1. 在弹出的"安全性与隐私"窗口中\n2. 点击左下角的锁图标并输入密码\n3. 在"辅助功能"列表中勾选 N-Clip\n4. 完成后请重启 N-Clip 应用',
-                buttons: ['打开系统偏好设置', '稍后设置', '应用重启指南'],
-                defaultId: 0,
-                cancelId: 1
-            })
-
-            if (result.response === 0) {
-                // 请求权限（这会打开系统偏好设置）
-                systemPreferences.isTrustedAccessibilityClient(true)
-
-                // 开始监听权限变化
-                startPermissionMonitoring()
-
-            } else if (result.response === 2) {
-                // 显示重启指南
-                await dialog.showMessageBox({
-                    type: 'info',
-                    title: 'N-Clip 应用重启指南',
-                    message: '如果您已经在系统偏好设置中授权了 N-Clip，但功能仍不工作：',
-                    detail: '请完全重启应用：\n\n1. 右键点击托盘中的 N-Clip 图标\n2. 选择"退出 N-Clip"\n3. 重新启动 N-Clip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
-                    buttons: ['知道了', '立即退出应用']
-                }).then((restartResult: MessageBoxReturnValue) => {
-                    if (restartResult.response === 1) {
-                        app.quit()
-                    }
+            // 智能权限处理：检查是否是首次运行
+            const isFirstRun = !fs.existsSync(path.join(os.homedir(), '.neurora', 'n-clip', 'settings.json'))
+            
+            if (isFirstRun) {
+                console.log('检测到首次运行，显示权限引导对话框')
+                
+                // 显示权限请求对话框
+                const {dialog} = require('electron')
+                const result = await dialog.showMessageBox({
+                    type: 'warning',
+                    title: 'N-Clip 需要辅助功能权限',
+                    message: 'N-Clip 需要辅助功能权限才能使用全局快捷键功能。',
+                    detail: '点击"打开系统偏好设置"后：\n1. 在弹出的"安全性与隐私"窗口中\n2. 点击左下角的锁图标并输入密码\n3. 在"辅助功能"列表中勾选 N-Clip\n4. 完成后应用将自动重启',
+                    buttons: ['打开系统偏好设置', '稍后设置', '应用重启指南'],
+                    defaultId: 0,
+                    cancelId: 1
                 })
+
+                if (result.response === 0) {
+                    // 请求权限（这会打开系统偏好设置）
+                    systemPreferences.isTrustedAccessibilityClient(true)
+
+                    // 开始监听权限变化
+                    startPermissionMonitoring()
+
+                } else if (result.response === 2) {
+                    // 显示重启指南
+                    await dialog.showMessageBox({
+                        type: 'info',
+                        title: 'N-Clip 应用重启指南',
+                        message: '如果您已经在系统偏好设置中授权了 N-Clip，但功能仍不工作：',
+                        detail: '请完全重启应用：\n\n1. 右键点击托盘中的 N-Clip 图标\n2. 选择"退出 N-Clip"\n3. 重新启动 N-Clip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
+                        buttons: ['知道了', '立即退出应用']
+                    }).then((restartResult: MessageBoxReturnValue) => {
+                        if (restartResult.response === 1) {
+                            app.quit()
+                        }
+                    })
+                }
+            } else {
+                // 非首次运行，静默处理
+                console.log('非首次运行，静默处理权限缺失')
+                // 通过托盘菜单提示用户，而不是阻塞对话框
+                updateTrayMenu() // 更新托盘菜单状态
             }
 
             return false
@@ -2045,37 +2071,46 @@ app.whenReady().then(async () => {
     app.dock?.hide()
 
     try {
-        // 并行初始化关键组件
-        const [_, hasPermissions] = await Promise.all([
-            initDataStorage(),
-            checkAndRequestPermissions()
-        ])
-
-        // 注册IPC处理器（必须在早期完成）
+        console.log('=== 应用启动优化模式 ===')
+        
+        // 第一阶段：核心初始化（非阻塞）
+        console.log('第一阶段：核心初始化')
+        await initDataStorage()
         registerIpcHandlers()
-
-        // 只有有权限时才注册全局快捷键
-        if (hasPermissions) {
-            registerGlobalShortcuts()
-            console.log('Global shortcuts registered with permissions')
-        } else {
-            console.log('Global shortcuts skipped - no accessibility permission')
-        }
-
-        // 创建窗口（优先级最高）
-        createWindow()
-
-        // 并行完成次要初始化任务
+        
+        // 第二阶段：UI初始化（快速显示）
+        console.log('第二阶段：UI初始化')
+        await createWindow()
+        createTray()
+        
+        // 第三阶段：数据加载（并行）
+        console.log('第三阶段：数据加载')
         await Promise.all([
             loadClipboardHistory(),
             loadArchiveItems()
         ])
-
-        // 创建托盘和启动监听器
-        createTray()
+        
+        // 第四阶段：启动监听器
+        console.log('第四阶段：启动监听器')
         startClipboardWatcher()
-
-        console.log('Application startup completed')
+        
+        // 第五阶段：权限检查（延迟非阻塞）
+        console.log('第五阶段：权限检查（延迟）')
+        setTimeout(async () => {
+            try {
+                const hasPermissions = await checkAndRequestPermissions()
+                if (hasPermissions) {
+                    registerGlobalShortcuts()
+                    console.log('Global shortcuts registered with permissions')
+                } else {
+                    console.log('Global shortcuts skipped - no accessibility permission')
+                }
+            } catch (error) {
+                console.error('权限检查失败:', error)
+            }
+        }, 1000) // 1秒延迟，让应用先完全启动
+        
+        console.log('Application startup completed (快速模式)')
     } catch (error) {
         console.error('Failed to initialize application:', error)
     }

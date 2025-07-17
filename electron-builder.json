@@ -24,6 +24,9 @@
       "to": "logo.png"
     }
   ],
+  "asarUnpack": [
+    "public/logo.png"
+  ],
   "mac": {
     "category": "public.app-category.productivity",
     "target": [
