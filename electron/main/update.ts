@@ -16,15 +16,24 @@ export function update(win: Electron.BrowserWindow) {
   autoUpdater.allowDowngrade = false
 
   // start check
-  autoUpdater.on('checking-for-update', function () { })
+  autoUpdater.on('checking-for-update', function () { 
+    console.log('Checking for updates...')
+  })
   // update available
   autoUpdater.on('update-available', (arg: UpdateInfo) => {
+    console.log('Update available:', arg.version)
     win.webContents.send('update-can-available', { update: true, version: app.getVersion(), newVersion: arg?.version })
   })
   // update not available
   autoUpdater.on('update-not-available', (arg: UpdateInfo) => {
+    console.log('Update not available. Current version:', app.getVersion())
     win.webContents.send('update-can-available', { update: false, version: app.getVersion(), newVersion: arg?.version })
   })
+
+  // 应用启动后自动检查更新
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify()
+  }, 3000) // 3秒后检查更新，避免干扰启动流程
 
   // Checking for updates
   ipcMain.handle('check-update', async () => {

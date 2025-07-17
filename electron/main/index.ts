@@ -16,6 +16,7 @@ import {fileURLToPath} from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import {update} from './update'
 // import sqlite3 from 'sqlite3'
 
 const require = createRequire(import.meta.url)
@@ -240,6 +241,13 @@ async function createWindow() {
 
             windowReady = true
             console.log('Window ready for use')
+            
+            // 初始化自动更新功能
+            if (app.isPackaged) {
+                update(win!)
+                console.log('Auto-updater initialized')
+            }
+            
             resolve()
         })
 
@@ -502,6 +510,33 @@ function createTray() {
                     label: '偏好设置...',
                     enabled: false // 暂时禁用
                 },
+                {
+                    label: '检查更新',
+                    click: async () => {
+                        if (app.isPackaged) {
+                            try {
+                                const { autoUpdater } = require('electron-updater')
+                                await autoUpdater.checkForUpdatesAndNotify()
+                            } catch (error) {
+                                const {dialog} = require('electron')
+                                await dialog.showMessageBox({
+                                    type: 'error',
+                                    title: '检查更新失败',
+                                    message: '无法检查更新',
+                                    detail: error instanceof Error ? error.message : '网络错误'
+                                })
+                            }
+                        } else {
+                            const {dialog} = require('electron')
+                            await dialog.showMessageBox({
+                                type: 'info',
+                                title: '检查更新',
+                                message: '自动更新功能仅在打包后的应用中可用',
+                                detail: '开发环境中无法使用自动更新功能。'
+                            })
+                        }
+                    }
+                },
                 ...(hasGlobalShortcuts ? [] : [
                     { type: 'separator' as const },
                     {
@@ -704,6 +739,33 @@ function updateTrayMenu() {
                 {
                     label: '偏好设置...',
                     enabled: false // 暂时禁用
+                },
+                {
+                    label: '检查更新',
+                    click: async () => {
+                        if (app.isPackaged) {
+                            try {
+                                const { autoUpdater } = require('electron-updater')
+                                await autoUpdater.checkForUpdatesAndNotify()
+                            } catch (error) {
+                                const {dialog} = require('electron')
+                                await dialog.showMessageBox({
+                                    type: 'error',
+                                    title: '检查更新失败',
+                                    message: '无法检查更新',
+                                    detail: error instanceof Error ? error.message : '网络错误'
+                                })
+                            }
+                        } else {
+                            const {dialog} = require('electron')
+                            await dialog.showMessageBox({
+                                type: 'info',
+                                title: '检查更新',
+                                message: '自动更新功能仅在打包后的应用中可用',
+                                detail: '开发环境中无法使用自动更新功能。'
+                            })
+                        }
+                    }
                 },
                 ...(hasGlobalShortcuts ? [] : [
                     { type: 'separator' as const },
