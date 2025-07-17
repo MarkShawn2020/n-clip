@@ -1,3 +1,10 @@
+## [3.2.1](https://github.com/MarkShawn2020/n-clip/compare/v3.2.0...v3.2.1) (2025-07-17)
+
+
+### Bug Fixes
+
+* resolve release version tray and global shortcut issues ([ebcd63f](https://github.com/MarkShawn2020/n-clip/commit/ebcd63f7413d8a8b3493482e750a6cb926232f5b))
+
 # [3.2.0](https://github.com/MarkShawn2020/n-clip/compare/v3.1.0...v3.2.0) (2025-07-17)
 
 
