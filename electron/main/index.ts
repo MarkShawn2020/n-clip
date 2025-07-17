@@ -526,7 +526,7 @@ function createTray() {
     // 设置托盘菜单
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: '📋 打开 N-Clip',
+            label: '📋 打开剪切板记录',
             click: () => {
                 toggleWindow()
             }
@@ -709,7 +709,7 @@ function updateTrayMenu() {
 
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: '📋 打开 N-Clip',
+            label: '📋 打开剪切板记录',
             click: () => {
                 toggleWindow()
             }
