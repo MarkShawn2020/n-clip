@@ -18,6 +18,12 @@
       "filter": ["**/*"]
     }
   ],
+  "extraResources": [
+    {
+      "from": "public/logo.png",
+      "to": "logo.png"
+    }
+  ],
   "mac": {
     "category": "public.app-category.productivity",
     "target": [
