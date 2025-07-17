@@ -33,6 +33,12 @@ module.exports = {
       }
     ],
     [
+      '@semantic-release/exec',
+      {
+        prepareCmd: 'pnpm run dist:ci'
+      }
+    ],
+    [
       '@semantic-release/github',
       {
         assets: [

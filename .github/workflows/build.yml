@@ -197,12 +197,14 @@ jobs:
         # Install any macOS specific dependencies if needed
         echo "macOS dependencies installed"
       
-    - name: Build Electron app
-      run: pnpm run dist:ci
-      timeout-minutes: 20
+    - name: Semantic Release (Version & Build)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        # 运行semantic-release来确定版本并构建
+        pnpm exec semantic-release
       env:
-        # GitHub token for releases
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         # Memory optimization for electron-builder
         NODE_OPTIONS: "--max-old-space-size=6144"
         # Disable code signing for CI builds
@@ -212,6 +214,7 @@ jobs:
         ELECTRON_BUILDER_CACHE: false
         
     - name: List build artifacts
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
         echo "Build artifacts:"
         find release/ -type f -name "*.dmg" -o -name "*.zip" -o -name "*.yml" | head -20
@@ -219,6 +222,7 @@ jobs:
         du -sh release/ 2>/dev/null || echo "No release directory"
         
     - name: Upload artifacts
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       uses: actions/upload-artifact@v4
       with:
         name: macos-build
@@ -229,10 +233,3 @@ jobs:
         retention-days: 7
         compression-level: 6
       continue-on-error: true
-      
-    - name: Semantic Release
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: pnpm exec semantic-release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
