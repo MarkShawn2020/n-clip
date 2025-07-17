@@ -526,7 +526,7 @@ function createTray() {
     // 设置托盘菜单
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: 'Open N-Clip',
+            label: '📋 打开 N-Clip',
             click: () => {
                 toggleWindow()
             }
@@ -544,11 +544,11 @@ function createTray() {
         },
         { type: 'separator' },
         {
-            label: `Clipboard Items: ${clipboardHistory.length}`,
+            label: `剪贴板项目：${clipboardHistory.length}`,
             enabled: false
         },
         {
-            label: `Archive Items: ${archiveItems.length}`,
+            label: `收藏项目：${archiveItems.length}`,
             enabled: false
         },
         {
@@ -655,7 +655,7 @@ function createTray() {
         },
         {type: 'separator'},
         {
-            label: 'Recent Items',
+            label: '📝 最近项目',
             submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
                 label: `${index + 1}. ${item.preview || item.content}`.substring(0, 50),
                 click: () => {
@@ -665,11 +665,11 @@ function createTray() {
         },
         {type: 'separator'},
         {
-            label: 'Preferences...',
+            label: '⚙️ 偏好设置...',
             enabled: false // 暂时禁用
         },
         {
-            label: 'Quit N-Clip',
+            label: '🚪 退出 N-Clip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
                 // 停止剪切板监听
@@ -689,7 +689,7 @@ function createTray() {
     ])
 
     tray.setContextMenu(contextMenu)
-    tray.setToolTip('N-Clip - Clipboard Manager')
+    tray.setToolTip('N-Clip - 剪贴板管理器')
 
     // 点击托盘图标切换窗口
     tray.on('click', () => {
@@ -709,7 +709,7 @@ function updateTrayMenu() {
 
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: 'Open N-Clip',
+            label: '📋 打开 N-Clip',
             click: () => {
                 toggleWindow()
             }
@@ -727,11 +727,11 @@ function updateTrayMenu() {
         },
         { type: 'separator' },
         {
-            label: `Clipboard Items: ${clipboardHistory.length}`,
+            label: `剪贴板项目：${clipboardHistory.length}`,
             enabled: false
         },
         {
-            label: `Archive Items: ${archiveItems.length}`,
+            label: `收藏项目：${archiveItems.length}`,
             enabled: false
         },
         {
@@ -838,7 +838,7 @@ function updateTrayMenu() {
         },
         {type: 'separator'},
         {
-            label: 'Recent Items',
+            label: '📝 最近项目',
             submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
                 label: `${index + 1}. ${(item.preview || item.content).substring(0, 40)}${(item.preview || item.content).length > 40 ? '...' : ''}`,
                 click: () => {
@@ -849,7 +849,7 @@ function updateTrayMenu() {
         },
         {type: 'separator'},
         {
-            label: 'Clear History',
+            label: '🗑️ 清除历史',
             click: () => {
                 clipboardHistory = []
                 updateTrayMenu()
@@ -859,12 +859,12 @@ function updateTrayMenu() {
             }
         },
         {
-            label: 'Preferences...',
+            label: '⚙️ 偏好设置...',
             enabled: false // 暂时禁用
         },
         {type: 'separator'},
         {
-            label: 'Quit N-Clip',
+            label: '🚪 退出 N-Clip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
                 // 停止剪切板监听
