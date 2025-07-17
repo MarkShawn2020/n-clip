@@ -1,3 +1,10 @@
+## [3.8.2](https://github.com/MarkShawn2020/n-clip/compare/v3.8.1...v3.8.2) (2025-07-17)
+
+
+### Bug Fixes
+
+* 📱 按照最佳实践重构logo资源管理 ([3d59662](https://github.com/MarkShawn2020/n-clip/commit/3d596627a50d383561fc5e9adeace54f54978e0f))
+
 ## [3.8.1](https://github.com/MarkShawn2020/n-clip/compare/v3.8.0...v3.8.1) (2025-07-17)
 
 
