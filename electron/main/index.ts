@@ -1743,16 +1743,8 @@ async function checkAndRequestPermissions() {
                 // 请求权限（这会打开系统偏好设置）
                 systemPreferences.isTrustedAccessibilityClient(true)
 
-                // 显示后续指导
-                setTimeout(async () => {
-                    await dialog.showMessageBox({
-                        type: 'info',
-                        title: '授权完成后请重启应用',
-                        message: '权限授权完成后，请完全退出并重新启动 N-Clip 应用以确保权限生效。',
-                        detail: '您可以：\n1. 右键托盘图标选择"退出"\n2. 或使用 Cmd+Q 退出应用\n3. 然后重新启动应用',
-                        buttons: ['知道了']
-                    })
-                }, 2000)
+                // 开始监听权限变化
+                startPermissionMonitoring()
 
             } else if (result.response === 2) {
                 // 显示重启指南
@@ -1777,6 +1769,100 @@ async function checkAndRequestPermissions() {
     } catch (error) {
         console.error('权限检查错误:', error)
         return false
+    }
+}
+
+// 权限监听定时器
+let permissionCheckInterval: NodeJS.Timeout | null = null
+
+// 开始监听权限变化
+function startPermissionMonitoring() {
+    if (permissionCheckInterval) {
+        clearInterval(permissionCheckInterval)
+    }
+    
+    console.log('开始监听权限变化...')
+    
+    // 检查macOS版本，优先使用原生Hook
+    const osVersion = require('os').release()
+    const majorVersion = parseInt(osVersion.split('.')[0])
+    
+    // Darwin 25.x 对应 macOS 15.4+，支持 ES_EVENT_TYPE_NOTIFY_TCC_MODIFY
+    if (majorVersion >= 25) {
+        console.log('检测到macOS 15.4+，尝试使用Endpoint Security Hook')
+        if (tryEndpointSecurityHook()) {
+            return // 成功启用Hook，无需轮询
+        }
+        console.log('Endpoint Security Hook初始化失败，降级为轮询模式')
+    } else {
+        console.log('检测到旧版macOS，使用轮询模式')
+    }
+    
+    // 降级为轮询模式
+    startPollingMode()
+}
+
+// 尝试使用Endpoint Security Hook
+function tryEndpointSecurityHook(): boolean {
+    try {
+        // 这里需要原生模块支持，暂时返回false降级为轮询
+        // TODO: 实现真正的Endpoint Security客户端
+        console.log('Endpoint Security需要原生模块支持，当前降级为轮询')
+        return false
+    } catch (error) {
+        console.error('Endpoint Security Hook初始化失败:', error)
+        return false
+    }
+}
+
+// 轮询模式
+function startPollingMode() {
+    let checkCount = 0
+    const maxChecks = 60 // 最多检查2分钟 (60 * 2秒 = 120秒)
+    
+    permissionCheckInterval = setInterval(async () => {
+        const {systemPreferences} = require('electron')
+        const hasAccessibilityPermission = systemPreferences.isTrustedAccessibilityClient(false)
+        
+        checkCount++
+        
+        if (hasAccessibilityPermission) {
+            console.log('检测到权限已授予，准备重启应用')
+            
+            // 停止监听
+            if (permissionCheckInterval) {
+                clearInterval(permissionCheckInterval)
+                permissionCheckInterval = null
+            }
+            
+            await showRestartDialog()
+        } else if (checkCount >= maxChecks) {
+            // 2分钟后停止检查，避免无限轮询
+            console.log('权限检查超时，停止监听')
+            if (permissionCheckInterval) {
+                clearInterval(permissionCheckInterval)
+                permissionCheckInterval = null
+            }
+        }
+    }, 2000) // 每2秒检查一次
+}
+
+// 显示重启确认对话框
+async function showRestartDialog() {
+    const {dialog} = require('electron')
+    const result = await dialog.showMessageBox({
+        type: 'success',
+        title: '权限授权成功',
+        message: '检测到辅助功能权限已授予，是否立即重启应用以启用全部功能？',
+        detail: '重启后，N-Clip 将支持全局快捷键和所有高级功能。',
+        buttons: ['立即重启', '稍后手动重启'],
+        defaultId: 0
+    })
+    
+    if (result.response === 0) {
+        // 自动重启应用
+        app.relaunch()
+        app.exit()
     }
 }
 
@@ -1969,6 +2055,11 @@ app.on('will-quit', () => {
     unregisterNavigationShortcuts()
     // 清理所有全局快捷键
     globalShortcut.unregisterAll()
+    // 清理权限监听
+    if (permissionCheckInterval) {
+        clearInterval(permissionCheckInterval)
+        permissionCheckInterval = null
+    }
     // 销毁托盘
     if (tray) {
         tray.destroy()
