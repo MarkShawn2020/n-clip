@@ -22,6 +22,9 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 let win: BrowserWindow | null = null
 let archiveWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+// 窗口状态管理
+let windowPosition: { x: number; y: number } | null = null
+let windowReady = false
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
@@ -53,8 +56,8 @@ interface ArchiveItem {
 let clipboardHistory: ClipboardItem[] = []
 let archiveItems: ArchiveItem[] = []
 let lastClipboardText = ''
-let isMouseMonitoring = false
 let navigationShortcutsRegistered = false
+let operationInProgress = false
 
 // 数据存储相关 - 使用JSON文件持久化
 const APP_DATA_PATH = path.join(os.homedir(), '.neurora', 'n-clip')
@@ -157,16 +160,26 @@ function deleteClipboardItem(itemId: string) {
 }
 
 async function createWindow() {
+  // 如果窗口已存在，直接返回
+  if (win && !win.isDestroyed()) {
+    console.log('Window already exists, skipping creation')
+    return
+  }
+  
+  console.log('Creating new window...')
+  windowReady = false
+  
   win = new BrowserWindow({
     title: 'N-Clip',
     width: 800,
     height: 600,
     show: false, // 初始隐藏
-    // Alfred风格：完全无窗口装饰，但保持前台交互
+    // 临时启用frame和shadow用于调试可见性
     frame: false,
-    transparent: true,
-    hasShadow: false,
+    transparent: false, // 临时改为非透明
+    hasShadow: true, // 临时启用阴影
     titleBarStyle: 'hidden',
+    backgroundColor: '#1e1e1e', // 添加深色背景
     // 前台显示且可交互的关键配置
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -178,51 +191,72 @@ async function createWindow() {
     // 关键：Alfred风格焦点管理配置
     focusable: true, // 允许接收键盘事件
     acceptFirstMouse: true, // 允许点击激活以便检测失焦
-    vibrancy: 'under-window',
+    // vibrancy: 'under-window', // 临时禁用
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
     },
   })
-
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
-    win.webContents.openDevTools()
-  } else {
-    win.loadFile(indexHtml)
+  
+  // 计算并保存固定窗口位置
+  if (!windowPosition) {
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+    
+    const windowWidth = 800
+    const windowHeight = 600
+    windowPosition = {
+      x: Math.round((screenWidth - windowWidth) / 2),
+      y: Math.round((screenHeight - windowHeight) / 2)
+    }
+    console.log(`Fixed window position calculated: ${windowPosition.x}, ${windowPosition.y}`)
   }
 
-  win.webContents.on('dom-ready', () => {
-    console.log('DOM ready, window should be visible')
-    // DOM准备好后，发送当前剪切板历史
-    if (clipboardHistory.length > 0) {
-      win?.webContents.send('clipboard:history-updated', clipboardHistory)
-    }
-  })
+  // 等待窗口完全准备就绪
+  return new Promise<void>((resolve) => {
+    win!.webContents.once('dom-ready', () => {
+      console.log('=== DOM READY ===')
+      console.log('Window bounds:', win?.getBounds())
+      console.log('Window visible:', win?.isVisible())
+      console.log('Window focused:', win?.isFocused())
+      
+      // 设置固定位置
+      if (windowPosition) {
+        win?.setBounds({ ...windowPosition, width: 800, height: 600 })
+      }
+      
+      // DOM准备好后，发送当前剪切板历史
+      if (clipboardHistory.length > 0) {
+        win?.webContents.send('clipboard:history-updated', clipboardHistory)
+      }
+      
+      windowReady = true
+      console.log('Window ready for use')
+      resolve()
+    })
+    
+    win!.webContents.on('did-finish-load', () => {
+      console.log('=== PAGE LOADED ===')
+      console.log('Window bounds:', win?.getBounds())
+      console.log('Window visible:', win?.isVisible())
+    })
 
-  // 阻止窗口关闭，只是隐藏
-  win.on('close', (event) => {
-    if (!(app as any).isQuitting) {
-      event.preventDefault()
-      hideWindow()
-      console.log('Window close prevented, hiding instead')
-    }
-  })
-
-  // 监听窗口失焦事件 - Alfred风格自动隐藏
-  win.on('blur', () => {
-    if (win && win.isVisible()) {
-      console.log('Window lost focus, hiding...')
-      hideWindow()
-    }
-  })
-
-  // 额外的失焦检测 - 监听应用失焦
-  app.on('browser-window-blur', (event, window) => {
-    if (window === win && win && win.isVisible()) {
-      console.log('App lost focus, hiding window...')
-      hideWindow()
+    // 阻止窗口关闭，只是隐藏 - 只注册一次
+    win!.once('close', (event) => {
+      if (!(app as any).isQuitting) {
+        event.preventDefault()
+        atomicHide()
+        console.log('Window close prevented, hiding instead')
+      }
+    })
+    
+    // 加载页面
+    if (VITE_DEV_SERVER_URL) {
+      win!.loadURL(VITE_DEV_SERVER_URL)
+    } else {
+      win!.loadFile(indexHtml)
     }
   })
 }
@@ -488,48 +522,198 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu)
 }
 
-// 增强的鼠标监听 - 检测点击其他区域
-function startMouseMonitoring() {
-  if (isMouseMonitoring || !win) return
-  
-  isMouseMonitoring = true
-  console.log('Mouse monitoring started - window will auto-hide on focus loss')
-  
-  // 定期检查窗口是否仍然聚焦
-  const focusCheckInterval = setInterval(() => {
-    if (!win || !win.isVisible()) {
-      isMouseMonitoring = false
-      clearInterval(focusCheckInterval)
-      return
-    }
-    
-    // 检查窗口是否聚焦
-    if (!win.isFocused()) {
-      console.log('Window not focused during monitoring, hiding...')
-      hideWindow()
-      clearInterval(focusCheckInterval)
-    }
-  }, 200) // 每200ms检查一次
-}
-
-function stopMouseMonitoring() {
-  isMouseMonitoring = false
-}
-
-// 切换窗口显示/隐藏 - Alfred风格
-function toggleWindow() {
+// 简单的失焦自动隐藏
+function setupAutoHide() {
   if (!win) return
   
+  const onBlur = () => {
+    if (win && win.isVisible() && !operationInProgress) {
+      console.log('Window lost focus, auto-hiding...')
+      atomicHide()
+    }
+  }
+  
+  // 只添加一次性的blur监听器
+  win.once('blur', onBlur)
+}
+
+// 原子性显示窗口
+function atomicShow() {
+  if (!win || !windowReady || operationInProgress) {
+    console.log(`Cannot show window: win=${!!win}, ready=${windowReady}, inProgress=${operationInProgress}`)
+    return
+  }
+  
+  operationInProgress = true
+  console.log('=== ATOMIC SHOW ===')
+  
+  // 使用固定位置，避免重复计算
+  if (windowPosition) {
+    console.log(`Using fixed position: ${windowPosition.x}, ${windowPosition.y}`)
+    win.setBounds({ ...windowPosition, width: 800, height: 600 })
+  }
+  
+  // 确保窗口正确显示和设置alwaysOnTop
+  win.show()
+  
+  // 延迟一点时间确保显示完成再设置alwaysOnTop
+  process.nextTick(() => {
+    if (win && !win.isDestroyed()) {
+      win.focus()
+      win.setAlwaysOnTop(true, 'floating')
+      console.log('AlwaysOnTop re-enabled after show')
+    }
+  })
+  registerNavigationShortcuts()
+  
+  console.log('Window bounds after show:', win.getBounds())
+  console.log('Window visible:', win.isVisible())
+  
+  // 设置自动隐藏 - 使用双重nextTick确保所有操作完成
+  process.nextTick(() => {
+    process.nextTick(() => {
+      if (win && !win.isDestroyed()) {
+        console.log('Window focused:', win.isFocused())
+        console.log('Window always on top:', win.isAlwaysOnTop())
+        setupAutoHide()
+        operationInProgress = false
+        console.log('Show operation completed')
+      }
+    })
+  })
+}
+
+// 原子性隐藏窗口 - 增强版，解决macOS alwaysOnTop问题
+function atomicHide() {
+  if (!win || operationInProgress) {
+    console.log('Cannot hide: win exists =', !!win, 'operation in progress =', operationInProgress)
+    return
+  }
+  
+  operationInProgress = true
+  console.log('=== ATOMIC HIDE ===')
+  console.log('Window visible before hide:', win.isVisible())
+  console.log('Window always on top:', win.isAlwaysOnTop())
+  
+  // 注销导航快捷键
+  unregisterNavigationShortcuts()
+  
+  // macOS上的alwaysOnTop窗口隐藏修复
+  try {
+    // 1. 先禁用alwaysOnTop（macOS关键步骤）
+    if (win.isAlwaysOnTop()) {
+      console.log('Disabling alwaysOnTop before hide...')
+      win.setAlwaysOnTop(false)
+    }
+    
+    // 2. 执行隐藏
+    win.hide()
+    
+    // 3. 验证隐藏结果
+    process.nextTick(() => {
+      const isStillVisible = win && !win.isDestroyed() && win.isVisible()
+      console.log('Window visible after hide:', isStillVisible)
+      
+      if (isStillVisible) {
+        console.log('Hide failed, trying alternative methods...')
+        // 备用方法1: 最小化 + 隐藏
+        try {
+          if (win && win.isMinimizable()) {
+            win.minimize()
+          }
+          win?.hide()
+        } catch (error) {
+          console.error('Alternative hide method failed:', error)
+        }
+        
+        // 备用方法2: 移到屏幕外
+        try {
+          const { screen } = require('electron')
+          const displays = screen.getAllDisplays()
+          if (displays.length > 0) {
+            const display = displays[0]
+            win?.setBounds({
+              x: -10000,
+              y: -10000,
+              width: 800,
+              height: 600
+            })
+            console.log('Moved window off-screen as fallback')
+          }
+        } catch (error) {
+          console.error('Off-screen fallback failed:', error)
+        }
+      }
+      
+      operationInProgress = false
+      console.log('Hide operation completed, final state:', win?.isVisible())
+    })
+    
+  } catch (error) {
+    console.error('Error during hide operation:', error)
+    operationInProgress = false
+  }
+}
+
+// 切换窗口显示/隐藏 - 彻底修复版本
+function toggleWindow() {
+  console.log('=== TOGGLE WINDOW ===')
+  console.log('Window exists:', !!win)
+  console.log('Window destroyed:', win ? win.isDestroyed() : 'N/A')
+  console.log('Window visible:', win?.isVisible())
+  console.log('Window ready:', windowReady)
+  console.log('Operation in progress:', operationInProgress)
+  
+  // 如果窗口不存在或已销毁，重新创建
+  if (!win || win.isDestroyed()) {
+    console.log('Window missing or destroyed, recreating...')
+    operationInProgress = true
+    createWindow()
+      .then(() => {
+        console.log('Window recreated successfully, showing...')
+        atomicShow()
+      })
+      .catch(error => {
+        console.error('Failed to recreate window:', error)
+        operationInProgress = false
+      })
+    return
+  }
+  
+  // 如果窗口存在但未准备好，等待准备完成
+  if (!windowReady) {
+    console.log('Window not ready, waiting...')
+    const checkReady = () => {
+      if (windowReady) {
+        atomicShow()
+      } else {
+        // 使用process.nextTick避免setTimeout
+        process.nextTick(checkReady)
+      }
+    }
+    checkReady()
+    return
+  }
+  
+  // 如果操作正在进行中，但窗口可见，强制隐藏（用户期望的toggle行为）
+  if (operationInProgress && win.isVisible()) {
+    console.log('Force hiding window during operation')
+    operationInProgress = false  // 重置状态
+    atomicHide()
+    return
+  }
+  
+  // 如果操作正在进行中且窗口不可见，跳过（避免冲突）
+  if (operationInProgress) {
+    console.log('Skipping toggle - operation in progress')
+    return
+  }
+  
+  // 正常的toggle逻辑
   if (win.isVisible()) {
-    hideWindow()
+    atomicHide()
   } else {
-    // 显示窗口并获得焦点，以便能检测失焦
-    win.show()
-    win.focus()
-    win.setAlwaysOnTop(true, 'floating')
-    // 启动鼠标监听和导航快捷键
-    startMouseMonitoring()
-    registerNavigationShortcuts()
+    atomicShow()
   }
 }
 
@@ -574,19 +758,7 @@ function registerNavigationShortcuts() {
 
   globalShortcut.register('Escape', () => {
     if (win && win.isVisible()) {
-      hideWindow()
-    }
-  })
-
-  globalShortcut.register('s', () => {
-    if (win && win.isVisible()) {
-      win.webContents.send('toggle-star')
-    }
-  })
-
-  globalShortcut.register('a', () => {
-    if (win && win.isVisible()) {
-      win.webContents.send('open-archive')
+      atomicHide()
     }
   })
 
@@ -603,8 +775,6 @@ function unregisterNavigationShortcuts() {
   globalShortcut.unregister('Return')
   globalShortcut.unregister('Tab')
   globalShortcut.unregister('Escape')
-  globalShortcut.unregister('s')
-  globalShortcut.unregister('a')
   
   navigationShortcutsRegistered = false
   console.log('Navigation shortcuts unregistered')
@@ -684,14 +854,6 @@ async function openArchiveWindow() {
   console.log('=== DEBUG: openArchiveWindow() END ===')
 }
 
-// 隐藏窗口的统一方法
-function hideWindow() {
-  if (win && win.isVisible()) {
-    win.hide()
-    stopMouseMonitoring()
-    unregisterNavigationShortcuts()
-  }
-}
 
 // Register IPC handlers
 function registerIpcHandlers() {
@@ -759,7 +921,7 @@ function registerIpcHandlers() {
           end tell
         `
         
-        hideWindow()
+        atomicHide()
         
         const process = spawn('osascript', ['-e', script])
         
@@ -882,7 +1044,7 @@ function registerIpcHandlers() {
       // 立即隐藏剪切板窗口
       if (win && win.isVisible()) {
         console.log('DEBUG: Hiding clipboard window before opening archive')
-        hideWindow()
+        atomicHide()
       }
       
       console.log('DEBUG: Calling openArchiveWindow()...')
