@@ -1,3 +1,10 @@
+## [3.1.1](https://github.com/MarkShawn2020/n-clip/compare/v3.1.0...v3.1.1) (2025-07-17)
+
+
+### Bug Fixes
+
+* window toggle ([b84e93b](https://github.com/MarkShawn2020/n-clip/commit/b84e93b6747e35f1ab5dd5d32ce8faafe08bbfa1))
+
 # [3.1.0](https://github.com/MarkShawn2020/n-clip/compare/v3.0.0...v3.1.0) (2025-07-17)
 
 
