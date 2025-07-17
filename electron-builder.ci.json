@@ -19,6 +19,10 @@
       "from": "electron/native/build/Release",
       "to": "native",
       "filter": ["**/*"]
+    },
+    {
+      "from": "public/logo.png",
+      "to": "logo.png"
     }
   ],
   "mac": {
@@ -26,7 +30,7 @@
     "target": [
       {
         "target": "zip",
-        "arch": ["x64"]
+        "arch": ["x64", "arm64"]
       }
     ],
     "artifactName": "${productName}_${version}_${arch}.${ext}",
