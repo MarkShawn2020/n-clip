@@ -2,7 +2,7 @@
   "name": "n-clip",
   "version": "3.8.7",
   "main": "dist-electron/main/index.js",
-  "description": "A clipboard manager with Alfred-like interface for neurora.",
+  "description": "A modern clipboard manager with Alfred-like interface for neurora.",
   "author": "neurora",
   "license": "MIT",
   "private": true,
