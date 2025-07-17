@@ -1,3 +1,11 @@
+# [3.9.0](https://github.com/MarkShawn2020/n-clip/compare/v3.8.7...v3.9.0) (2025-07-17)
+
+
+### Features
+
+* ✨ 触发新版本发布 - 更新描述 ([fc27eb9](https://github.com/MarkShawn2020/n-clip/commit/fc27eb99d3ee9327409e391160e14894da42d366))
+* ✨ 触发新版本发布测试logo和版本号修复 ([7815afa](https://github.com/MarkShawn2020/n-clip/commit/7815afadd97b5fca1241d35d795858b02645a8f6))
+
 ## [3.8.7](https://github.com/MarkShawn2020/n-clip/compare/v3.8.6...v3.8.7) (2025-07-17)
 
 
