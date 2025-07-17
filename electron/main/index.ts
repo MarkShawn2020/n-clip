@@ -1757,8 +1757,8 @@ function getLogoResourcePath(): string {
     if (process.env.VITE_DEV_SERVER_URL) {
         return path.join(process.cwd(), 'public', 'logo.png')
     } else {
-        // 生产环境：extraFiles配置直接复制到Resources根目录
-        return path.join(process.resourcesPath, 'logo.png')
+        // 生产环境：extraFiles配置复制到Contents根目录，不是Resources目录
+        return path.join(process.resourcesPath, '..', 'logo.png')
     }
 }
 
