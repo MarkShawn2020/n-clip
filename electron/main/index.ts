@@ -352,64 +352,36 @@ function createTray() {
   let icon: Electron.NativeImage | null = null
   let iconMethod = 'none'
   
-  // 方法0：尝试使用新的 logo.svg（基于 Canvas 重绘）
+  // 方法0：直接使用 logo.png 文件
   try {
-    const canvas = require('canvas')
-    console.log('尝试基于 logo.svg 设计生成图标...')
+    const possibleLogoPaths = [
+      path.join(process.env.VITE_PUBLIC || '', 'logo.png'),
+      path.join(__dirname, '../../public/logo.png'),
+      path.join(__dirname, '../../../public/logo.png'),
+      path.join(process.resourcesPath, 'logo.png'),
+    ]
     
-    const iconSize = 16
-    const canvasElement = canvas.createCanvas(iconSize, iconSize)
-    const ctx = canvasElement.getContext('2d')
-    
-    // 基于 logo.svg 的设计重新绘制一个简化版本
-    // 清空背景
-    ctx.clearRect(0, 0, iconSize, iconSize)
-    
-    // 绘制主体轮廓（简化的曲线形状）
-    ctx.fillStyle = '#000000'  // 黑色主体，与 SVG 保持一致
-    ctx.beginPath()
-    
-    // 绘制类似 logo 的抽象形状
-    // 主要的弯曲形状
-    ctx.moveTo(3, 2)
-    ctx.quadraticCurveTo(8, 1, 13, 4)
-    ctx.quadraticCurveTo(14, 8, 11, 12)
-    ctx.quadraticCurveTo(8, 15, 4, 13)
-    ctx.quadraticCurveTo(1, 10, 2, 6)
-    ctx.quadraticCurveTo(2, 4, 3, 2)
-    ctx.closePath()
-    ctx.fill()
-    
-    // 添加一些内部细节（简化版本）
-    ctx.fillStyle = '#ffffff'  // 白色细节
-    ctx.beginPath()
-    ctx.arc(6, 6, 2, 0, Math.PI * 2)
-    ctx.fill()
-    
-    ctx.fillStyle = '#000000'  // 黑色小点
-    ctx.beginPath()
-    ctx.arc(6, 6, 0.5, 0, Math.PI * 2)
-    ctx.fill()
-    
-    const iconBuffer = canvasElement.toBuffer('image/png')
-    const tempIcon = nativeImage.createFromBuffer(iconBuffer)
-    if (!tempIcon.isEmpty()) {
-      icon = tempIcon
-      iconMethod = 'logo-based-canvas'
-      console.log('✅ 成功基于 logo.svg 设计生成托盘图标')
+    for (const logoPath of possibleLogoPaths) {
+      console.log('尝试 logo.png 路径:', logoPath)
+      if (fs.existsSync(logoPath)) {
+        const tempIcon = nativeImage.createFromPath(logoPath)
+        if (!tempIcon.isEmpty()) {
+          // 为托盘调整大小（16x16）
+          icon = tempIcon.resize({ width: 16, height: 16 })
+          iconMethod = `logo.png: ${logoPath}`
+          console.log('✅ 成功使用 logo.png 作为托盘图标:', logoPath)
+          break
+        }
+      }
     }
   } catch (logoError) {
-    console.log('❌ Logo 基础图标生成失败:', logoError)
+    console.log('❌ Logo.png 加载失败:', logoError)
   }
   
   // 方法1：尝试使用应用内置图标（备用）
   if (!icon) {
     try {
       const possiblePaths = [
-        path.join(process.env.VITE_PUBLIC || '', 'logo.svg'),
-        path.join(__dirname, '../../public/logo.svg'),
-        path.join(__dirname, '../../../public/logo.svg'),
-        path.join(process.resourcesPath, 'logo.svg'),
         path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
         path.join(__dirname, '../../public/favicon.ico'),
         path.join(__dirname, '../../../public/favicon.ico'),
@@ -417,19 +389,13 @@ function createTray() {
       ]
     
       for (const iconPath of possiblePaths) {
-        console.log('尝试图标路径:', iconPath)
+        console.log('尝试 favicon.ico 路径:', iconPath)
         if (fs.existsSync(iconPath)) {
-          // SVG 文件需要特殊处理，暂时跳过，使用 Canvas 方法
-          if (iconPath.endsWith('.svg')) {
-            console.log('跳过 SVG 文件，使用 Canvas 版本:', iconPath)
-            continue
-          }
-          
           const tempIcon = nativeImage.createFromPath(iconPath)
           if (!tempIcon.isEmpty()) {
             icon = tempIcon
-            iconMethod = `built-in-icon: ${iconPath}`
-            console.log('✅ 成功使用内置图标作为托盘图标:', iconPath)
+            iconMethod = `favicon.ico: ${iconPath}`
+            console.log('✅ 成功使用 favicon.ico 作为托盘图标:', iconPath)
             break
           }
         }
@@ -1248,16 +1214,17 @@ async function openArchiveWindow() {
       skipTaskbar: false,
       show: false,
       icon: (() => {
-        // 优先尝试使用 logo.svg 的路径，但由于 electron 不直接支持 SVG，使用 favicon.ico 作为备用
-        const logoPath = path.join(process.env.VITE_PUBLIC, 'logo.svg')
+        // 优先使用 logo.png，备用 favicon.ico
+        const logoPngPath = path.join(process.env.VITE_PUBLIC, 'logo.png')
         const faviconPath = path.join(process.env.VITE_PUBLIC, 'favicon.ico')
         
-        // 检查 logo.svg 是否存在（但暂时仍使用 favicon.ico，因为 electron 的限制）
-        if (fs.existsSync(logoPath)) {
-          console.log('检测到 logo.svg，但使用 favicon.ico 作为窗口图标（Electron 限制）')
+        if (fs.existsSync(logoPngPath)) {
+          console.log('使用 logo.png 作为 Archive 窗口图标')
+          return logoPngPath
+        } else {
+          console.log('logo.png 不存在，使用 favicon.ico 作为 Archive 窗口图标')
+          return faviconPath
         }
-        
-        return faviconPath
       })(),
       webPreferences: {
         preload,
@@ -1471,43 +1438,22 @@ function registerIpcHandlers() {
           event.sender.startDrag({
             file: tempFilePath,
             icon: (() => {
-              // 尝试基于 logo.svg 创建拖拽图标
+              // 使用 logo.png 作为拖拽图标
               try {
-                const canvas = require('canvas')
-                const iconSize = 64 // 拖拽图标稍大一些
-                const canvasElement = canvas.createCanvas(iconSize, iconSize)
-                const ctx = canvasElement.getContext('2d')
+                const logoPngPath = path.join(process.env.VITE_PUBLIC || '', 'logo.png')
+                if (fs.existsSync(logoPngPath)) {
+                  const logoIcon = nativeImage.createFromPath(logoPngPath)
+                  if (!logoIcon.isEmpty()) {
+                    // 调整为拖拽图标合适的大小
+                    return logoIcon.resize({ width: 64, height: 64 })
+                  }
+                }
                 
-                // 绘制基于 logo.svg 的拖拽图标
-                ctx.clearRect(0, 0, iconSize, iconSize)
-                
-                // 主体形状（放大版本）
-                ctx.fillStyle = '#000000'
-                ctx.beginPath()
-                ctx.moveTo(12, 8)
-                ctx.quadraticCurveTo(32, 4, 52, 16)
-                ctx.quadraticCurveTo(56, 32, 44, 48)
-                ctx.quadraticCurveTo(32, 60, 16, 52)
-                ctx.quadraticCurveTo(4, 40, 8, 24)
-                ctx.quadraticCurveTo(8, 16, 12, 8)
-                ctx.closePath()
-                ctx.fill()
-                
-                // 内部细节
-                ctx.fillStyle = '#ffffff'
-                ctx.beginPath()
-                ctx.arc(24, 24, 8, 0, Math.PI * 2)
-                ctx.fill()
-                
-                ctx.fillStyle = '#000000'
-                ctx.beginPath()
-                ctx.arc(24, 24, 2, 0, Math.PI * 2)
-                ctx.fill()
-                
-                const iconBuffer = canvasElement.toBuffer('image/png')
-                return nativeImage.createFromBuffer(iconBuffer)
+                // 备用方案：使用 favicon.ico
+                console.log('logo.png 不可用，使用 favicon.ico 作为拖拽图标')
+                return nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'))
               } catch (error) {
-                console.log('创建拖拽图标失败，使用备用方案:', error)
+                console.log('拖拽图标创建失败:', error)
                 return nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'))
               }
             })()

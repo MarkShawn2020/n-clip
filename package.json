@@ -28,7 +28,8 @@
     "dist:mac": "pnpm run build:native && tsc && vite build && electron-builder --mac --publish=never",
     "dist:win": "pnpm run build:native && tsc && vite build && electron-builder --win --publish=never",
     "dist:linux": "pnpm run build:native && tsc && vite build && electron-builder --linux --publish=never",
-    "validate-workflows": "./scripts/validate-workflows.sh"
+    "validate-workflows": "./scripts/validate-workflows.sh",
+    "generate-favicon": "node scripts/generate-favicon.cjs"
   },
   "dependencies": {
     "canvas": "^3.1.2",
@@ -42,11 +43,11 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^10.0.3",
-    "conventional-changelog-conventionalcommits": "^8.0.0",
     "@tailwindcss/vite": "^4.1.11",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
     "electron": "^33.2.0",
     "electron-builder": "^24.13.3",
     "node-gyp": "^10.0.0",
@@ -54,6 +55,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "semantic-release": "^23.0.0",
+    "sharp": "^0.34.3",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.4.2",
     "vite": "^5.4.11",
