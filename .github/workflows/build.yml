@@ -59,7 +59,8 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
       
-    - name: Check Not Allowed File Changes
+    - name: Check Not Allowed File Changes (External Contributors)
+      if: github.actor != 'dependabot[bot]'
       uses: dorny/paths-filter@v2
       id: filter_not_allowed
       with:
@@ -68,17 +69,15 @@ jobs:
           change:
             - 'package-lock.json'
             - 'yarn.lock'
-            - 'pnpm-lock.yaml'
 
     - name: Comment About Changes We Can't Accept
-      if: steps.filter_not_allowed.outputs.change == 'true'
+      if: github.actor != 'dependabot[bot]' && steps.filter_not_allowed.outputs.change == 'true'
       uses: actions/github-script@v6
       with:
         script: |
           const reviewMessage = `👋 Hey there spelunker. It looks like you've modified some files that we can't accept as contributions. The complete list of files we can't accept are:
           - package-lock.json
           - yarn.lock
-          - pnpm-lock.yaml
           
           You'll need to revert all of the files you changed in that list using [GitHub Desktop](https://docs.github.com/en/free-pro-team@latest/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/reverting-a-commit) or \`git checkout origin/main <file name>\`. Once you get those files reverted, we can continue with the review process. :octocat:`
           
