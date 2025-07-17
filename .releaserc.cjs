@@ -18,13 +18,19 @@ module.exports = {
           { type: 'build', release: false },
           { type: 'ci', release: false },
           { scope: 'no-release', release: false }
-        ]
+        ],
+        parserOpts: {
+          noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES']
+        }
       }
     ],
     [
       '@semantic-release/release-notes-generator',
       {
-        preset: 'conventionalcommits'
+        preset: 'conventionalcommits',
+        parserOpts: {
+          noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES']
+        }
       }
     ],
     '@semantic-release/changelog',
