@@ -24,15 +24,7 @@ module.exports = {
         }
       }
     ],
-    [
-      '@semantic-release/release-notes-generator',
-      {
-        preset: 'conventionalcommits',
-        parserOpts: {
-          noteKeywords: ['BREAKING CHANGE', 'BREAKING CHANGES']
-        }
-      }
-    ],
+    '@semantic-release/release-notes-generator',
     '@semantic-release/changelog',
     [
       '@semantic-release/npm',
