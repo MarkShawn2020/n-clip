@@ -1,3 +1,10 @@
+# [3.8.0](https://github.com/MarkShawn2020/n-clip/compare/v3.7.0...v3.8.0) (2025-07-17)
+
+
+### Features
+
+* 🔄 完善自动更新功能 ([409984f](https://github.com/MarkShawn2020/n-clip/commit/409984f765ad03d05ab32db9dcbcd4abc7769490))
+
 # [3.7.0](https://github.com/MarkShawn2020/n-clip/compare/v3.6.0...v3.7.0) (2025-07-17)
 
 
