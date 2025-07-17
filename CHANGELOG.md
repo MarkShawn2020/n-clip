@@ -1,3 +1,19 @@
+# [3.1.0](https://github.com/MarkShawn2020/n-clip/compare/v3.0.0...v3.1.0) (2025-07-17)
+
+
+### Bug Fixes
+
+* add GitHub Actions permissions for semantic-release ([9f433c5](https://github.com/MarkShawn2020/n-clip/commit/9f433c5cb07f64b5c9a45ba1eddb779e801e4d6e))
+* correct window blur event name in electron main process ([a50f472](https://github.com/MarkShawn2020/n-clip/commit/a50f472af55d044e5daed132abf20728cb604b93))
+* rename semantic-release config to CommonJS format ([be9c640](https://github.com/MarkShawn2020/n-clip/commit/be9c640a8b4be77e560ac3840b3e193a2932d78b))
+* resolve PostCSS configuration issue with TailwindCSS nesting ([4415282](https://github.com/MarkShawn2020/n-clip/commit/4415282b76d248832c935b55a984f8131cfa1b39))
+
+
+### Features
+
+* integrate semantic-release for automated version management and releases ([01dba7f](https://github.com/MarkShawn2020/n-clip/commit/01dba7f06966195271e97a4c017edddb41f280db))
+* upgrade to TailwindCSS 4.0 with Vite plugin integration ([cdbf765](https://github.com/MarkShawn2020/n-clip/commit/cdbf7650cb6ea922294233bdba308eceeecf9455))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
