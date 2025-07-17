@@ -1,3 +1,24 @@
+# [3.7.0](https://github.com/MarkShawn2020/n-clip/compare/v3.6.0...v3.7.0) (2025-07-17)
+
+
+### Bug Fixes
+
+* 修复开发环境托盘图标路径问题 ([5009838](https://github.com/MarkShawn2020/n-clip/commit/500983858c648048e41cda0ed5642aa0293d9839))
+* 修复托盘图标路径和默认图标显示问题 ([0b7307e](https://github.com/MarkShawn2020/n-clip/commit/0b7307e9f0c1c8234b032fdc7d0e2e5c2d939d25))
+* 确保logo.png正确打包到生产环境 ([c5ebfa3](https://github.com/MarkShawn2020/n-clip/commit/c5ebfa38b6b6a209c6cc855875e3f3ca983fcec9))
+
+
+### Features
+
+* :rocket: fix start speed and tray icon ([55c6ef0](https://github.com/MarkShawn2020/n-clip/commit/55c6ef07138af06cee47d9a5a4d9a273706be2a7))
+* :rocket: local app ok ([5efd56f](https://github.com/MarkShawn2020/n-clip/commit/5efd56fdc6f2f549ed672cf1bb1c95ade98a5755))
+
+
+### Performance Improvements
+
+* better permission managment ([0b3c68b](https://github.com/MarkShawn2020/n-clip/commit/0b3c68b2e12ecc28fbf60644def4ec4ca07da4fc))
+* optimize application startup performance ([7d920ce](https://github.com/MarkShawn2020/n-clip/commit/7d920cec57deb96cfb0b98aa63a316ef86e64ec3))
+
 # [3.6.0](https://github.com/MarkShawn2020/n-clip/compare/v3.5.1...v3.6.0) (2025-07-17)
 
 
