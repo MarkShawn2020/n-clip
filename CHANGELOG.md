@@ -1,3 +1,10 @@
+# [3.5.0](https://github.com/MarkShawn2020/n-clip/compare/v3.4.0...v3.5.0) (2025-07-17)
+
+
+### Features
+
+* unify GUI language to Chinese for better user experience ([d8a0ac2](https://github.com/MarkShawn2020/n-clip/commit/d8a0ac25d79c405a600bf26399e36f9280f07d17))
+
 # [3.4.0](https://github.com/MarkShawn2020/n-clip/compare/v3.3.1...v3.4.0) (2025-07-17)
 
 
