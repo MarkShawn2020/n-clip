@@ -1,3 +1,19 @@
+# [3.2.0](https://github.com/MarkShawn2020/n-clip/compare/v3.1.0...v3.2.0) (2025-07-17)
+
+
+### Bug Fixes
+
+* add missing conventional-changelog-conventionalcommits dependency ([81c47f1](https://github.com/MarkShawn2020/n-clip/commit/81c47f172d78ce1f807f2741edc76694ab54ee74))
+* allow dependabot to update pnpm-lock.yaml file ([098c9bc](https://github.com/MarkShawn2020/n-clip/commit/098c9bcabc21fba42c158f16686db5ba499d10bc))
+* simplify release-notes-generator config to avoid time parsing issue ([3d3fb50](https://github.com/MarkShawn2020/n-clip/commit/3d3fb50500858c1a8c4a4c28295b40f9b11ab678))
+* update pnpm-lock.yaml for conventional-changelog-conventionalcommits ([fcf4dfb](https://github.com/MarkShawn2020/n-clip/commit/fcf4dfb0b7fc282747da5ce5e3a27ccaca8eb97b))
+* window toggle ([b84e93b](https://github.com/MarkShawn2020/n-clip/commit/b84e93b6747e35f1ab5dd5d32ce8faafe08bbfa1))
+
+
+### Features
+
+* optimize GitHub Actions workflows and improve dependency management ([fe24168](https://github.com/MarkShawn2020/n-clip/commit/fe24168e35eb5e1750e215c71740bbe608102087))
+
 ## [3.1.1](https://github.com/MarkShawn2020/n-clip/compare/v3.1.0...v3.1.1) (2025-07-17)
 
 
