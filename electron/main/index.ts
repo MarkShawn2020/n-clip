@@ -346,49 +346,138 @@ function startClipboardWatcher() {
   }, 1000) // 每秒检查一次
 }
 
-// 创建系统托盘
+// 强化的系统托盘创建
 function createTray() {
-  let icon: Electron.NativeImage
+  console.log('=== 托盘图标创建诊断 ===')
+  let icon: Electron.NativeImage | null = null
+  let iconMethod = 'none'
   
+  // 方法1：尝试使用应用内置图标
   try {
-    // 方法1：尝试使用现有的favicon作为托盘图标
-    const faviconPath = path.join(process.env.VITE_PUBLIC || '', 'favicon.ico')
-    if (fs.existsSync(faviconPath)) {
-      icon = nativeImage.createFromPath(faviconPath)
-      console.log('Using favicon.ico as tray icon')
-    } else {
-      throw new Error('Favicon not found')
+    const possiblePaths = [
+      path.join(process.env.VITE_PUBLIC || '', 'favicon.ico'),
+      path.join(__dirname, '../../public/favicon.ico'),
+      path.join(__dirname, '../../../public/favicon.ico'),
+      path.join(process.resourcesPath, 'favicon.ico'),
+    ]
+    
+    for (const iconPath of possiblePaths) {
+      console.log('尝试图标路径:', iconPath)
+      if (fs.existsSync(iconPath)) {
+        const tempIcon = nativeImage.createFromPath(iconPath)
+        if (!tempIcon.isEmpty()) {
+          icon = tempIcon
+          iconMethod = `favicon: ${iconPath}`
+          console.log('✅ 成功使用 favicon 作为托盘图标:', iconPath)
+          break
+        }
+      }
     }
   } catch (error) {
-    console.log('Favicon approach failed, creating minimal icon:', error)
-    
+    console.log('❌ Favicon 方法失败:', error)
+  }
+  
+  // 方法2：尝试 Canvas 生成（仅在方法1失败时）
+  if (!icon) {
     try {
-      // 方法2：Canvas备用方案（兼容性更好的代码）
+      const canvas = require('canvas')
+      console.log('尝试使用 Canvas 生成图标...')
+      
       const iconSize = 16
-      const canvas = require('canvas').createCanvas(iconSize, iconSize)
-      const ctx = canvas.getContext('2d')
+      const canvasElement = canvas.createCanvas(iconSize, iconSize)
+      const ctx = canvasElement.getContext('2d')
       
-      // 绘制简单的剪切板图标
+      // 绘制简单但可见的图标
       ctx.fillStyle = '#000000'
-      ctx.fillRect(2, 2, 12, 12)
+      ctx.fillRect(0, 0, iconSize, iconSize)
       ctx.fillStyle = '#ffffff'
-      ctx.fillRect(3, 3, 10, 10)
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(4, 6, 8, 1)
-      ctx.fillRect(4, 8, 6, 1)
-      ctx.fillRect(4, 10, 8, 1)
+      ctx.fillRect(1, 1, iconSize-2, iconSize-2)
+      ctx.fillStyle = '#007AFF'  // 蓝色，更容易识别
+      ctx.fillRect(3, 4, iconSize-6, 2)
+      ctx.fillRect(3, 7, iconSize-8, 2)
+      ctx.fillRect(3, 10, iconSize-6, 2)
       
-      const iconBuffer = canvas.toBuffer('image/png')
-      icon = nativeImage.createFromBuffer(iconBuffer)
-      console.log('Using canvas-generated tray icon')
+      const iconBuffer = canvasElement.toBuffer('image/png')
+      const tempIcon = nativeImage.createFromBuffer(iconBuffer)
+      if (!tempIcon.isEmpty()) {
+        icon = tempIcon
+        iconMethod = 'canvas-generated'
+        console.log('✅ 成功使用 Canvas 生成托盘图标')
+      }
     } catch (canvasError) {
-      console.log('Canvas approach failed, using empty icon:', canvasError)
-      // 方法3：创建空图标作为最后手段
-      icon = nativeImage.createEmpty()
+      console.log('❌ Canvas 方法失败:', canvasError)
     }
   }
   
-  tray = new Tray(icon)
+  // 方法3：创建基本的像素图标
+  if (!icon) {
+    try {
+      console.log('尝试创建基本像素图标...')
+      // 创建一个简单的 16x16 像素的图标
+      const size = 16
+      const buffer = Buffer.alloc(size * size * 4) // RGBA
+      
+      // 填充一个简单的图案
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const index = (y * size + x) * 4
+          if (x === 0 || y === 0 || x === size-1 || y === size-1) {
+            // 边框 - 黑色
+            buffer[index] = 0     // R
+            buffer[index + 1] = 0 // G
+            buffer[index + 2] = 0 // B
+            buffer[index + 3] = 255 // A
+          } else if ((x > 2 && x < size-3) && (y === 4 || y === 7 || y === 10)) {
+            // 横线 - 蓝色
+            buffer[index] = 0     // R
+            buffer[index + 1] = 122 // G
+            buffer[index + 2] = 255 // B
+            buffer[index + 3] = 255 // A
+          } else {
+            // 背景 - 白色
+            buffer[index] = 255   // R
+            buffer[index + 1] = 255 // G
+            buffer[index + 2] = 255 // B
+            buffer[index + 3] = 255 // A
+          }
+        }
+      }
+      
+      const tempIcon = nativeImage.createFromBuffer(buffer, { width: size, height: size })
+      if (!tempIcon.isEmpty()) {
+        icon = tempIcon
+        iconMethod = 'pixel-buffer'
+        console.log('✅ 成功创建像素缓冲图标')
+      }
+    } catch (bufferError) {
+      console.log('❌ 像素缓冲方法失败:', bufferError)
+    }
+  }
+  
+  // 方法4：最后的备用方案 - 系统默认图标
+  if (!icon) {
+    console.log('⚠️  所有图标创建方法都失败，使用系统默认方案')
+    try {
+      // 在 macOS 上，即使是空图标也应该显示一个默认的图标
+      icon = nativeImage.createEmpty()
+      iconMethod = 'system-default'
+    } catch (error) {
+      console.error('❌ 连系统默认图标都创建失败:', error)
+      throw new Error('无法创建任何形式的托盘图标')
+    }
+  }
+  
+  try {
+    tray = new Tray(icon!)
+    console.log(`✅ 托盘创建成功，使用方法: ${iconMethod}`)
+    console.log('托盘对象信息:', {
+      isDestroyed: tray.isDestroyed(),
+      title: tray.getTitle?.() || 'N/A'
+    })
+  } catch (trayError) {
+    console.error('❌ 托盘创建失败:', trayError)
+    throw trayError
+  }
   
   // 检查快捷键状态
   const hasGlobalShortcuts = globalShortcut.isRegistered('CommandOrControl+Shift+V') || 
@@ -412,15 +501,103 @@ function createTray() {
     },
     { type: 'separator' },
     ...(hasGlobalShortcuts ? [] : [{
-      label: '启用全局快捷键',
+      label: '🔧 重新初始化快捷键',
       click: async () => {
-        const hasPermissions = await checkAndRequestPermissions()
-        if (hasPermissions) {
-          registerGlobalShortcuts()
-          updateTrayMenu() // 刷新菜单
+        console.log('用户手动请求重新初始化快捷键')
+        const success = await recheckPermissionsAndReinitialize()
+        updateTrayMenu() // 刷新菜单
+        
+        // 显示结果
+        const { dialog } = require('electron')
+        if (success) {
+          await dialog.showMessageBox({
+            type: 'info',
+            title: '重新初始化完成',
+            message: '快捷键和权限已重新初始化',
+            detail: '如果问题仍然存在，请尝试完全重启应用。'
+          })
+        } else {
+          await dialog.showMessageBox({
+            type: 'warning', 
+            title: '重新初始化失败',
+            message: '无法重新初始化快捷键',
+            detail: '请检查辅助功能权限设置，或尝试重启应用。'
+          })
         }
       }
     }, { type: 'separator' as const }]),
+    // 诊断菜单
+    {
+      label: '🩺 系统诊断',
+      submenu: [
+        {
+          label: '显示诊断信息',
+          click: async () => {
+            const { dialog } = require('electron')
+            
+            // 收集诊断信息
+            const diagnostics = await getDiagnosticInfo()
+            
+            await dialog.showMessageBox({
+              type: 'info',
+              title: 'N-Clip 系统诊断',
+              message: '当前系统状态',
+              detail: diagnostics,
+              buttons: ['知道了', '复制到剪贴板']
+            }).then((result) => {
+              if (result.response === 1) {
+                clipboard.writeText(diagnostics)
+              }
+            })
+          }
+        },
+        {
+          label: '测试快捷键',
+          click: () => {
+            console.log('用户手动测试快捷键')
+            toggleWindow()
+          }
+        },
+        {
+          label: '重新创建托盘',
+          click: () => {
+            try {
+              if (tray) {
+                tray.destroy()
+                tray = null
+              }
+              createTray()
+              updateTrayMenu()
+              console.log('托盘已重新创建')
+            } catch (error) {
+              console.error('重新创建托盘失败:', error)
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '完全重启应用',
+          click: async () => {
+            const { dialog } = require('electron')
+            const result = await dialog.showMessageBox({
+              type: 'question',
+              title: '重启应用',
+              message: '确定要重启 N-Clip 应用吗？',
+              detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
+              buttons: ['重启', '取消'],
+              defaultId: 0,
+              cancelId: 1
+            })
+            
+            if (result.response === 0) {
+              app.relaunch()
+              app.quit()
+            }
+          }
+        }
+      ]
+    },
+    { type: 'separator' },
     {
       label: 'Recent Items',
       submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
@@ -491,15 +668,103 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     ...(hasGlobalShortcuts ? [] : [{
-      label: '启用全局快捷键',
+      label: '🔧 重新初始化快捷键',
       click: async () => {
-        const hasPermissions = await checkAndRequestPermissions()
-        if (hasPermissions) {
-          registerGlobalShortcuts()
-          updateTrayMenu() // 刷新菜单
+        console.log('用户手动请求重新初始化快捷键')
+        const success = await recheckPermissionsAndReinitialize()
+        updateTrayMenu() // 刷新菜单
+        
+        // 显示结果
+        const { dialog } = require('electron')
+        if (success) {
+          await dialog.showMessageBox({
+            type: 'info',
+            title: '重新初始化完成',
+            message: '快捷键和权限已重新初始化',
+            detail: '如果问题仍然存在，请尝试完全重启应用。'
+          })
+        } else {
+          await dialog.showMessageBox({
+            type: 'warning', 
+            title: '重新初始化失败',
+            message: '无法重新初始化快捷键',
+            detail: '请检查辅助功能权限设置，或尝试重启应用。'
+          })
         }
       }
     }, { type: 'separator' as const }]),
+    // 诊断菜单
+    {
+      label: '🩺 系统诊断',
+      submenu: [
+        {
+          label: '显示诊断信息',
+          click: async () => {
+            const { dialog } = require('electron')
+            
+            // 收集诊断信息
+            const diagnostics = await getDiagnosticInfo()
+            
+            await dialog.showMessageBox({
+              type: 'info',
+              title: 'N-Clip 系统诊断',
+              message: '当前系统状态',
+              detail: diagnostics,
+              buttons: ['知道了', '复制到剪贴板']
+            }).then((result) => {
+              if (result.response === 1) {
+                clipboard.writeText(diagnostics)
+              }
+            })
+          }
+        },
+        {
+          label: '测试快捷键',
+          click: () => {
+            console.log('用户手动测试快捷键')
+            toggleWindow()
+          }
+        },
+        {
+          label: '重新创建托盘',
+          click: () => {
+            try {
+              if (tray) {
+                tray.destroy()
+                tray = null
+              }
+              createTray()
+              updateTrayMenu()
+              console.log('托盘已重新创建')
+            } catch (error) {
+              console.error('重新创建托盘失败:', error)
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: '完全重启应用',
+          click: async () => {
+            const { dialog } = require('electron')
+            const result = await dialog.showMessageBox({
+              type: 'question',
+              title: '重启应用',
+              message: '确定要重启 N-Clip 应用吗？',
+              detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
+              buttons: ['重启', '取消'],
+              defaultId: 0,
+              cancelId: 1
+            })
+            
+            if (result.response === 0) {
+              app.relaunch()
+              app.quit()
+            }
+          }
+        }
+      ]
+    },
+    { type: 'separator' },
     {
       label: 'Recent Items',
       submenu: clipboardHistory.slice(0, 5).map((item, index) => ({
@@ -775,23 +1040,70 @@ function toggleWindow() {
   }
 }
 
-// 注册全局快捷键
+// 强化的全局快捷键注册系统
 function registerGlobalShortcuts() {
-  // 正确的快捷键：Cmd+Shift+V
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', toggleWindow)
+  console.log('=== 全局快捷键注册诊断 ===')
   
-  if (!shortcutRegistered) {
-    console.log('Failed to register global shortcut Cmd+Shift+V')
-    // 尝试备用快捷键
-    const backupRegistered = globalShortcut.register('CommandOrControl+Option+V', toggleWindow)
-    if (backupRegistered) {
-      console.log('Backup global shortcut Cmd+Option+V registered successfully')
-    } else {
-      console.log('All global shortcuts failed to register - check accessibility permissions')
+  // 清理所有现有的快捷键
+  globalShortcut.unregisterAll()
+  console.log('已清理所有现有快捷键')
+  
+  const shortcutsToTry = [
+    'CommandOrControl+Shift+V',
+    'CommandOrControl+Option+V', 
+    'CommandOrControl+Shift+C',
+    'CommandOrControl+Alt+V',
+    'CommandOrControl+Shift+X'
+  ]
+  
+  let registeredShortcut = null
+  
+  for (const shortcut of shortcutsToTry) {
+    try {
+      console.log(`尝试注册快捷键: ${shortcut}`)
+      
+      // 检查是否已被占用
+      const isAlreadyRegistered = globalShortcut.isRegistered(shortcut)
+      if (isAlreadyRegistered) {
+        console.log(`⚠️  快捷键 ${shortcut} 已被本应用注册`)
+        continue
+      }
+      
+      const registered = globalShortcut.register(shortcut, () => {
+        console.log(`快捷键 ${shortcut} 被触发`)
+        toggleWindow()
+      })
+      
+      if (registered) {
+        registeredShortcut = shortcut
+        console.log(`✅ 成功注册快捷键: ${shortcut}`)
+        break
+      } else {
+        console.log(`❌ 注册失败: ${shortcut} (可能被其他应用占用)`)
+      }
+    } catch (error) {
+      console.log(`❌ 注册快捷键时出错 ${shortcut}:`, error)
+    }
+  }
+  
+  if (!registeredShortcut) {
+    console.error('❌ 所有快捷键注册都失败')
+    
+    // 检查权限状态
+    if (process.platform === 'darwin') {
+      const { systemPreferences } = require('electron')
+      const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
+      console.log('辅助功能权限状态:', hasAccessibility)
+      
+      if (!hasAccessibility) {
+        console.log('⚠️  快捷键注册失败可能是由于缺少辅助功能权限')
+      }
     }
   } else {
-    console.log('Global shortcut Cmd+Shift+V registered successfully')
+    console.log(`🎉 快捷键系统初始化完成，使用: ${registeredShortcut}`)
   }
+  
+  return registeredShortcut
 }
 
 // 注册导航快捷键 - 只在窗口显示时启用
@@ -1383,7 +1695,7 @@ function registerIpcHandlers() {
   })
 }
 
-// 检查和请求macOS权限
+// 强化的权限检查和诊断系统
 async function checkAndRequestPermissions() {
   if (process.platform !== 'darwin') {
     return true // 非macOS平台直接返回
@@ -1394,8 +1706,11 @@ async function checkAndRequestPermissions() {
     const { systemPreferences } = require('electron')
     const hasAccessibilityPermission = systemPreferences.isTrustedAccessibilityClient(false)
     
+    console.log('=== 权限诊断 ===')
+    console.log('辅助功能权限状态:', hasAccessibilityPermission)
+    
     if (!hasAccessibilityPermission) {
-      console.log('Accessibility permission not granted, requesting...')
+      console.log('辅助功能权限未授予，显示授权引导...')
       
       // 显示权限请求对话框
       const { dialog } = require('electron')
@@ -1403,8 +1718,8 @@ async function checkAndRequestPermissions() {
         type: 'warning',
         title: 'N-Clip 需要辅助功能权限',
         message: 'N-Clip 需要辅助功能权限才能使用全局快捷键功能。',
-        detail: '点击"打开系统偏好设置"将会打开系统偏好设置，请在"安全性与隐私 > 隐私 > 辅助功能"中勾选 N-Clip。',
-        buttons: ['打开系统偏好设置', '稍后设置'],
+        detail: '点击"打开系统偏好设置"后：\n1. 在弹出的"安全性与隐私"窗口中\n2. 点击左下角的锁图标并输入密码\n3. 在"辅助功能"列表中勾选 N-Clip\n4. 完成后请重启 N-Clip 应用',
+        buttons: ['打开系统偏好设置', '稍后设置', '应用重启指南'],
         defaultId: 0,
         cancelId: 1
       })
@@ -1412,17 +1727,154 @@ async function checkAndRequestPermissions() {
       if (result.response === 0) {
         // 请求权限（这会打开系统偏好设置）
         systemPreferences.isTrustedAccessibilityClient(true)
+        
+        // 显示后续指导
+        setTimeout(async () => {
+          await dialog.showMessageBox({
+            type: 'info', 
+            title: '授权完成后请重启应用',
+            message: '权限授权完成后，请完全退出并重新启动 N-Clip 应用以确保权限生效。',
+            detail: '您可以：\n1. 右键托盘图标选择"退出"\n2. 或使用 Cmd+Q 退出应用\n3. 然后重新启动应用',
+            buttons: ['知道了']
+          })
+        }, 2000)
+        
+      } else if (result.response === 2) {
+        // 显示重启指南
+        await dialog.showMessageBox({
+          type: 'info',
+          title: 'N-Clip 应用重启指南', 
+          message: '如果您已经在系统偏好设置中授权了 N-Clip，但功能仍不工作：',
+          detail: '请完全重启应用：\n\n1. 右键点击托盘中的 N-Clip 图标\n2. 选择"退出 N-Clip"\n3. 重新启动 N-Clip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
+          buttons: ['知道了', '立即退出应用']
+        }).then((restartResult) => {
+          if (restartResult.response === 1) {
+            app.quit()
+          }
+        })
       }
       
       return false
     }
     
-    console.log('Accessibility permission already granted')
+    console.log('辅助功能权限已授予')
     return true
   } catch (error) {
-    console.error('Error checking permissions:', error)
+    console.error('权限检查错误:', error)
     return false
   }
+}
+
+// 权限重新检查和重新初始化
+async function recheckPermissionsAndReinitialize() {
+  console.log('=== 重新检查权限并重新初始化 ===')
+  
+  const hasPermissions = await checkAndRequestPermissions()
+  if (hasPermissions) {
+    // 重新注册全局快捷键
+    globalShortcut.unregisterAll()
+    registerGlobalShortcuts()
+    
+    // 重新创建托盘（如果需要）
+    if (!tray || tray.isDestroyed()) {
+      createTray()
+    } else {
+      updateTrayMenu()
+    }
+    
+    console.log('权限重新检查完成，功能已重新初始化')
+    return true
+  }
+  
+  return false
+}
+
+// 收集系统诊断信息
+async function getDiagnosticInfo() {
+  const info = []
+  
+  try {
+    // 基本信息
+    info.push('=== N-Clip 系统诊断信息 ===')
+    info.push(`时间: ${new Date().toLocaleString()}`)
+    info.push(`平台: ${process.platform} ${process.arch}`)
+    info.push(`Electron 版本: ${process.versions.electron}`)
+    info.push(`Node.js 版本: ${process.versions.node}`)
+    info.push('')
+    
+    // 权限状态
+    if (process.platform === 'darwin') {
+      const { systemPreferences } = require('electron')
+      const hasAccessibility = systemPreferences.isTrustedAccessibilityClient(false)
+      info.push('=== macOS 权限状态 ===')
+      info.push(`辅助功能权限: ${hasAccessibility ? '✅ 已授权' : '❌ 未授权'}`)
+      info.push('')
+    }
+    
+    // 快捷键状态
+    info.push('=== 快捷键状态 ===')
+    const shortcuts = [
+      'CommandOrControl+Shift+V',
+      'CommandOrControl+Option+V', 
+      'CommandOrControl+Shift+C',
+      'CommandOrControl+Alt+V',
+      'CommandOrControl+Shift+X'
+    ]
+    
+    for (const shortcut of shortcuts) {
+      const isRegistered = globalShortcut.isRegistered(shortcut)
+      info.push(`${shortcut}: ${isRegistered ? '✅ 已注册' : '❌ 未注册'}`)
+    }
+    info.push('')
+    
+    // 托盘状态
+    info.push('=== 托盘状态 ===')
+    info.push(`托盘存在: ${tray ? '✅ 是' : '❌ 否'}`)
+    if (tray) {
+      info.push(`托盘已销毁: ${tray.isDestroyed() ? '❌ 是' : '✅ 否'}`)
+      info.push(`托盘标题: ${tray.getTitle?.() || 'N/A'}`)
+    }
+    info.push('')
+    
+    // 窗口状态
+    info.push('=== 窗口状态 ===')
+    info.push(`主窗口存在: ${win ? '✅ 是' : '❌ 否'}`)
+    if (win) {
+      info.push(`窗口已销毁: ${win.isDestroyed() ? '❌ 是' : '✅ 否'}`)
+      info.push(`窗口可见: ${win.isVisible() ? '✅ 是' : '❌ 否'}`)
+      info.push(`窗口准备就绪: ${windowReady ? '✅ 是' : '❌ 否'}`)
+      const bounds = win.getBounds()
+      info.push(`窗口位置: ${bounds.x}, ${bounds.y}`)
+      info.push(`窗口大小: ${bounds.width} x ${bounds.height}`)
+    }
+    info.push('')
+    
+    // 数据状态
+    info.push('=== 数据状态 ===')
+    info.push(`剪切板历史条目: ${clipboardHistory.length}`)
+    info.push(`档案库条目: ${archiveItems.length}`)
+    info.push(`数据目录: ${APP_DATA_PATH}`)
+    info.push(`数据目录存在: ${fs.existsSync(APP_DATA_PATH) ? '✅ 是' : '❌ 否'}`)
+    info.push('')
+    
+    // 环境信息
+    info.push('=== 环境信息 ===')
+    info.push(`开发模式: ${VITE_DEV_SERVER_URL ? '✅ 是' : '❌ 否'}`)
+    info.push(`VITE_PUBLIC: ${process.env.VITE_PUBLIC || 'N/A'}`)
+    info.push(`APP_ROOT: ${process.env.APP_ROOT || 'N/A'}`)
+    info.push(`__dirname: ${__dirname}`)
+    info.push('')
+    
+    // 最近的错误（如果有的话）
+    info.push('=== 其他信息 ===')
+    info.push(`进程 PID: ${process.pid}`)
+    info.push(`内存使用: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`)
+    
+  } catch (error) {
+    info.push(`诊断信息收集时出错: ${error}`)
+  }
+  
+  return info.join('\n')
 }
 
 app.whenReady().then(async () => {
