@@ -365,21 +365,12 @@ function createTray() {
     console.log('=== 托盘图标创建 (优化版) ===')
     let icon: Electron.NativeImage
 
-    // 按照最佳实践的logo资源管理
+    // 简单直接的logo加载
     try {
         const logoPath = getLogoResourcePath()
-        
-        if (logoPath && fs.existsSync(logoPath)) {
-            const tempIcon = nativeImage.createFromPath(logoPath)
-            if (!tempIcon.isEmpty()) {
-                icon = tempIcon.resize({width: 16, height: 16})
-                console.log('✅ 成功使用 logo.png 作为托盘图标')
-            } else {
-                throw new Error('Logo 图标为空')
-            }
-        } else {
-            throw new Error('找不到logo.png资源文件')
-        }
+        console.log('Logo路径:', logoPath)
+        icon = nativeImage.createFromPath(logoPath).resize({width: 16, height: 16})
+        console.log('✅ 托盘图标加载成功')
     } catch (error) {
         console.log('⚠️  Logo加载失败，创建简单图标:', error instanceof Error ? error.message : 'Unknown error')
         
@@ -1761,50 +1752,14 @@ function registerIpcHandlers() {
     })
 }
 
-// 按照最佳实践的logo资源路径管理
-function getLogoResourcePath(): string | null {
-    // 开发环境：使用项目根目录的public文件夹
+// 简单直接的logo路径获取
+function getLogoResourcePath(): string {
     if (process.env.VITE_DEV_SERVER_URL) {
-        const devPath = path.join(process.cwd(), 'public', 'logo.png')
-        console.log('开发环境logo路径:', devPath)
-        return devPath
+        return path.join(process.cwd(), 'public', 'logo.png')
+    } else {
+        // 生产环境：extraFiles配置直接复制到Resources根目录
+        return path.join(process.resourcesPath, 'logo.png')
     }
-    
-    // 生产环境：按照最佳实践的多个路径尝试
-    const possiblePaths = [
-        // 标准Resources位置
-        path.join(process.resourcesPath, 'logo.png'),
-        // extraResources配置的位置
-        path.join(process.resourcesPath, 'app-assets', 'logo.png'),
-        // asar unpacked位置
-        path.join(process.resourcesPath, 'app.asar.unpacked', 'logo.png'),
-        path.join(process.resourcesPath, 'app.asar.unpacked', 'public', 'logo.png'),
-        // app目录
-        path.join(process.resourcesPath, 'app', 'logo.png'),
-        path.join(process.resourcesPath, 'app', 'public', 'logo.png'),
-        // 相对于dist-electron
-        path.join(__dirname, '../../../logo.png'),
-        path.join(__dirname, '../../../public/logo.png'),
-        // 上级目录
-        path.join(process.resourcesPath, '..', 'logo.png'),
-        path.join(process.resourcesPath, '..', 'public', 'logo.png'),
-        // macOS app bundle结构
-        path.join(process.resourcesPath, '..', 'Resources', 'logo.png'),
-        path.join(process.resourcesPath, '..', 'Resources', 'app-assets', 'logo.png'),
-    ]
-    
-    console.log('生产环境logo路径搜索:')
-    // 尝试每个路径
-    for (const testPath of possiblePaths) {
-        console.log(`测试路径: ${testPath}, 存在: ${fs.existsSync(testPath)}`)
-        if (fs.existsSync(testPath)) {
-            console.log('✅ 找到logo.png:', testPath)
-            return testPath
-        }
-    }
-    
-    console.log('❌ 在所有可能路径中都找不到logo.png')
-    return null
 }
 
 // 强化的权限检查和诊断系统

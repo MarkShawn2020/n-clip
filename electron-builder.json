@@ -9,29 +9,18 @@
   },
   "files": [
     "dist-electron",
-    "dist",
-    "public/logo.png"
+    "dist"
   ],
   "extraFiles": [
     {
       "from": "electron/native/build/Release",
       "to": "native",
       "filter": ["**/*"]
-    }
-  ],
-  "extraResources": [
+    },
     {
       "from": "public/logo.png",
       "to": "logo.png"
-    },
-    {
-      "from": "public/",
-      "to": "app-assets/",
-      "filter": ["logo.png"]
     }
-  ],
-  "asarUnpack": [
-    "public/logo.png"
   ],
   "mac": {
     "category": "public.app-category.productivity",
