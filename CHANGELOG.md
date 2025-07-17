@@ -1,3 +1,10 @@
+## [3.8.6](https://github.com/MarkShawn2020/n-clip/compare/v3.8.5...v3.8.6) (2025-07-17)
+
+
+### Bug Fixes
+
+* 🧪 测试CI logo打包 - 触发新版本 ([96fb279](https://github.com/MarkShawn2020/n-clip/commit/96fb2792438a35bea48ab36d558ddf7c63a67df3))
+
 ## [3.8.5](https://github.com/MarkShawn2020/n-clip/compare/v3.8.4...v3.8.5) (2025-07-17)
 
 
