@@ -1,4 +1,4 @@
-# N-Clip
+# LovClip
 
 一个现代化的剪切板管理器，基于 Electron + React + TypeScript 构建。
 

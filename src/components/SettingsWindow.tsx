@@ -280,7 +280,7 @@ export default function SettingsWindow() {
               <div className="setting-row">
                 <div className="setting-info">
                   <label>开机自启动</label>
-                  <p>系统启动时自动运行 N-Clip</p>
+                  <p>系统启动时自动运行 LovClip</p>
                 </div>
                 <div className="setting-control">
                   <input 
@@ -357,7 +357,7 @@ export default function SettingsWindow() {
               <div className="setting-row">
                 <div className="setting-info">
                   <label>全局快捷键</label>
-                  <p>用于显示/隐藏 N-Clip 窗口的快捷键</p>
+                  <p>用于显示/隐藏 LovClip 窗口的快捷键</p>
                 </div>
                 <div className="setting-control">
                   <input 
@@ -533,7 +533,7 @@ export default function SettingsWindow() {
   return (
     <div className="settings-window">
       <div className="settings-header">
-        <h1>N-Clip 设置</h1>
+        <h1>LovClip 设置</h1>
       </div>
 
       <div className="settings-body">

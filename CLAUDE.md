@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-N-Clip is a modern clipboard manager built with Electron, React, and TypeScript. It provides intelligent clipboard monitoring, search functionality, and share card generation with local SQLite storage.
+LovClip is a modern clipboard manager built with Electron, React, and TypeScript. It provides intelligent clipboard monitoring, search functionality, and share card generation with local SQLite storage.
 
 ## Development Commands
 
@@ -57,7 +57,7 @@ N-Clip is a modern clipboard manager built with Electron, React, and TypeScript.
 - `dist/` - Build output for web assets
 
 ### Data Storage
-- Application data stored in `~/.neurora/n-clip/`
+- Application data stored in `~/.neurora/lovclip/`
 - SQLite database: `clipboard.db`
 - Database schema includes: id, type, content, preview, timestamp, size, expiry_time
 - Images stored in date-organized directories
@@ -91,7 +91,7 @@ N-Clip is a modern clipboard manager built with Electron, React, and TypeScript.
 - Key atoms: clipboardItemsAtom, searchQueryAtom, selectedIndexAtom, filteredItemsAtom
 - Persistent window position storage with localStorage
 - Settings management: settingsAtom
-- Settings stored in localStorage with key 'n-clip-settings'
+- Settings stored in localStorage with key 'lovclip-settings'
 
 ### IPC Communication
 - Main process handles clipboard monitoring and database operations

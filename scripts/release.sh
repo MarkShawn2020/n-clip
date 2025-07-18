@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# N-Clip Release Script
+# LovClip Release Script
 
 set -e
 
@@ -10,7 +10,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}🚀 N-Clip Release Script${NC}"
+echo -e "${GREEN}🚀 LovClip Release Script${NC}"
 echo "========================================"
 
 # Check if we're on main branch
@@ -97,7 +97,7 @@ git push origin $NEW_VERSION
 
 echo -e "${GREEN}✅ Release ${NEW_VERSION} has been pushed to GitHub!${NC}"
 echo -e "${YELLOW}📦 GitHub Actions will now build and publish the release automatically.${NC}"
-echo -e "${YELLOW}🔗 Check the progress at: https://github.com/mark/n-clip/actions${NC}"
+echo -e "${YELLOW}🔗 Check the progress at: https://github.com/mark/lovclip/actions${NC}"
 
 echo "========================================"
 echo -e "${GREEN}🎉 Release process completed!${NC}"

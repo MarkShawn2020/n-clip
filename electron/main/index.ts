@@ -28,7 +28,7 @@ process.env.APP_ROOT = path.join(__dirname, '../..')
 process.on('uncaughtException', (error) => {
     // 将错误写入文件而不是控制台，避免EIO错误
     const errorMessage = `[${new Date().toISOString()}] Uncaught Exception: ${error.message}\n${error.stack}\n\n`;
-    const errorLogPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+    const errorLogPath = path.join(os.homedir(), '.neurora', 'lovclip', 'error.log');
     try {
         // 确保目录存在
         const logDir = path.dirname(errorLogPath);
@@ -52,7 +52,7 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
     const errorMessage = `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n\n`;
-    const errorLogPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+    const errorLogPath = path.join(os.homedir(), '.neurora', 'lovclip', 'error.log');
     try {
         // 确保目录存在
         const logDir = path.dirname(errorLogPath);
@@ -78,7 +78,7 @@ const safeConsole = {
             originalConsole.log(...args);
         } catch (error) {
             // 如果console.log失败，直接写入文件
-            const logPath = path.join(os.homedir(), '.neurora', 'n-clip', 'app.log');
+            const logPath = path.join(os.homedir(), '.neurora', 'lovclip', 'app.log');
             try {
                 // 确保目录存在
                 const logDir = path.dirname(logPath);
@@ -97,7 +97,7 @@ const safeConsole = {
             originalConsole.error(...args);
         } catch (error) {
             // 如果console.error失败，直接写入文件
-            const logPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+            const logPath = path.join(os.homedir(), '.neurora', 'lovclip', 'error.log');
             try {
                 // 确保目录存在
                 const logDir = path.dirname(logPath);
@@ -165,9 +165,87 @@ let navigationShortcutsRegistered = false
 let operationInProgress = false
 
 // 数据存储相关 - 使用JSON文件持久化
-const APP_DATA_PATH = path.join(os.homedir(), '.neurora', 'n-clip')
+const APP_DATA_PATH = path.join(os.homedir(), '.neurora', 'lovclip')
 const CLIPBOARD_DATA_FILE = path.join(APP_DATA_PATH, 'clipboard-history.json')
 const ARCHIVE_DATA_FILE = path.join(APP_DATA_PATH, 'archive-items.json')
+
+// 数据迁移逻辑 - 从 n-clip 迁移到 lovclip
+async function migrateFromNClip() {
+    const oldPath = path.join(os.homedir(), '.neurora', 'n-clip')
+    const newPath = path.join(os.homedir(), '.neurora', 'lovclip')
+    
+    try {
+        // 检查是否需要迁移
+        if (!fs.existsSync(oldPath)) {
+            console.log('No n-clip data found, skipping migration')
+            return
+        }
+        
+        if (fs.existsSync(newPath)) {
+            console.log('LovClip data already exists, skipping migration')
+            return
+        }
+        
+        console.log('Starting data migration from n-clip to lovclip...')
+        
+        // 创建新目录
+        fs.mkdirSync(newPath, { recursive: true })
+        
+        // 复制所有文件和目录
+        const copyRecursive = (src: string, dest: string) => {
+            const stat = fs.statSync(src)
+            if (stat.isDirectory()) {
+                fs.mkdirSync(dest, { recursive: true })
+                const files = fs.readdirSync(src)
+                files.forEach(file => {
+                    copyRecursive(path.join(src, file), path.join(dest, file))
+                })
+            } else {
+                fs.copyFileSync(src, dest)
+            }
+        }
+        
+        // 复制所有内容
+        const items = fs.readdirSync(oldPath)
+        items.forEach(item => {
+            const srcPath = path.join(oldPath, item)
+            const destPath = path.join(newPath, item)
+            copyRecursive(srcPath, destPath)
+        })
+        
+        // 标记迁移完成
+        const migrationMarker = path.join(newPath, '.migrated-from-n-clip')
+        fs.writeFileSync(migrationMarker, JSON.stringify({
+            timestamp: new Date().toISOString(),
+            originalPath: oldPath,
+            version: 'n-clip-to-lovclip'
+        }))
+        
+        console.log('✅ Data migration completed successfully!')
+        console.log(`📁 Data migrated from: ${oldPath}`)
+        console.log(`📁 Data migrated to: ${newPath}`)
+        
+    } catch (error) {
+        console.error('❌ Data migration failed:', error)
+        
+        // 记录错误到日志文件
+        const errorLogPath = path.join(newPath, 'migration-error.log')
+        try {
+            const errorLog = {
+                timestamp: new Date().toISOString(),
+                error: error.message,
+                stack: error.stack,
+                oldPath,
+                newPath
+            }
+            fs.writeFileSync(errorLogPath, JSON.stringify(errorLog, null, 2))
+        } catch (logError) {
+            console.error('Failed to write migration error log:', logError)
+        }
+        
+        throw error
+    }
+}
 
 // 初始化数据存储
 function initDataStorage() {
@@ -269,7 +347,7 @@ async function createWindow() {
     windowReady = false
 
     win = new BrowserWindow({
-        title: 'N-Clip',
+        title: 'LovClip',
         width: 800,
         height: 600,
         show: false, // 初始隐藏
@@ -649,7 +727,7 @@ function createTray() {
 
                                 await dialog.showMessageBox({
                                     type: 'info',
-                                    title: 'N-Clip 系统诊断',
+                                    title: 'LovClip 系统诊断',
                                     message: '当前系统状态',
                                     detail: diagnostics,
                                     buttons: ['知道了', '复制到剪贴板']
@@ -691,7 +769,7 @@ function createTray() {
                                 const result = await dialog.showMessageBox({
                                     type: 'question',
                                     title: '重启应用',
-                                    message: '确定要重启 N-Clip 应用吗？',
+                                    message: '确定要重启 LovClip 应用吗？',
                                     detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
                                     buttons: ['重启', '取消'],
                                     defaultId: 0,
@@ -712,7 +790,7 @@ function createTray() {
         // 退出功能
         { type: 'separator' as const },
         {
-            label: '退出 N-Clip',
+            label: '退出 LovClip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
                 unregisterNavigationShortcuts()
@@ -728,7 +806,7 @@ function createTray() {
     ])
 
     tray.setContextMenu(contextMenu)
-    tray.setToolTip('N-Clip - 剪贴板管理器')
+    tray.setToolTip('LovClip - 剪贴板管理器')
 
     // 点击托盘图标切换窗口
     tray.on('click', () => {
@@ -879,7 +957,7 @@ function updateTrayMenu() {
 
                                 await dialog.showMessageBox({
                                     type: 'info',
-                                    title: 'N-Clip 系统诊断',
+                                    title: 'LovClip 系统诊断',
                                     message: '当前系统状态',
                                     detail: diagnostics,
                                     buttons: ['知道了', '复制到剪贴板']
@@ -921,7 +999,7 @@ function updateTrayMenu() {
                                 const result = await dialog.showMessageBox({
                                     type: 'question',
                                     title: '重启应用',
-                                    message: '确定要重启 N-Clip 应用吗？',
+                                    message: '确定要重启 LovClip 应用吗？',
                                     detail: '这将完全退出并重新启动应用，可能解决权限和快捷键问题。',
                                     buttons: ['重启', '取消'],
                                     defaultId: 0,
@@ -942,7 +1020,7 @@ function updateTrayMenu() {
         // 退出功能
         { type: 'separator' as const },
         {
-            label: '退出 N-Clip',
+            label: '退出 LovClip',
             click: () => {
                 console.log('Quit clicked from tray, completely exiting app')
                 unregisterNavigationShortcuts()
@@ -1289,7 +1367,7 @@ async function openArchiveWindow() {
 
     try {
         archiveWindow = new BrowserWindow({
-            title: 'N-Clip 档案库',
+            title: 'LovClip 档案库',
             width: 1000,
             height: 700,
             minWidth: 800,
@@ -1396,7 +1474,7 @@ function registerIpcHandlers() {
             const {spawn} = require('child_process')
 
             return new Promise((resolve) => {
-                // 获取当前前台应用，隐藏N-Clip，激活目标应用，粘贴
+                // 获取当前前台应用，隐藏LovClip，激活目标应用，粘贴
                 const script = `
           set targetApp to ""
           tell application "System Events"
@@ -1477,7 +1555,7 @@ function registerIpcHandlers() {
 
             if (item.type === 'image' && item.preview) {
                 // 创建临时文件用于拖拽图片
-                const tempDir = path.join(os.tmpdir(), 'n-clip-drag')
+                const tempDir = path.join(os.tmpdir(), 'lovclip-drag')
                 if (!fs.existsSync(tempDir)) {
                     fs.mkdirSync(tempDir, {recursive: true})
                 }
@@ -1509,7 +1587,7 @@ function registerIpcHandlers() {
                 }
             } else if (item.type === 'text') {
                 // 对于文本，创建临时文本文件
-                const tempDir = path.join(os.tmpdir(), 'n-clip-drag')
+                const tempDir = path.join(os.tmpdir(), 'lovclip-drag')
                 if (!fs.existsSync(tempDir)) {
                     fs.mkdirSync(tempDir, {recursive: true})
                 }
@@ -1872,7 +1950,7 @@ async function checkAndRequestPermissions() {
             console.log('辅助功能权限未授予，智能处理...')
 
             // 智能权限处理：检查是否是首次运行
-            const isFirstRun = !fs.existsSync(path.join(os.homedir(), '.neurora', 'n-clip', 'settings.json'))
+            const isFirstRun = !fs.existsSync(path.join(os.homedir(), '.neurora', 'lovclip', 'settings.json'))
             
             if (isFirstRun) {
                 console.log('检测到首次运行，显示权限引导对话框')
@@ -1881,9 +1959,9 @@ async function checkAndRequestPermissions() {
                 const {dialog} = require('electron')
                 const result = await dialog.showMessageBox({
                     type: 'warning',
-                    title: 'N-Clip 需要辅助功能权限',
-                    message: 'N-Clip 需要辅助功能权限才能使用全局快捷键功能。',
-                    detail: '点击"打开系统偏好设置"后：\n1. 在弹出的"安全性与隐私"窗口中\n2. 点击左下角的锁图标并输入密码\n3. 在"辅助功能"列表中勾选 N-Clip\n4. 完成后应用将自动重启',
+                    title: 'LovClip 需要辅助功能权限',
+                    message: 'LovClip 需要辅助功能权限才能使用全局快捷键功能。',
+                    detail: '点击"打开系统偏好设置"后：\n1. 在弹出的"安全性与隐私"窗口中\n2. 点击左下角的锁图标并输入密码\n3. 在"辅助功能"列表中勾选 LovClip\n4. 完成后应用将自动重启',
                     buttons: ['打开系统偏好设置', '稍后设置', '应用重启指南'],
                     defaultId: 0,
                     cancelId: 1
@@ -1900,9 +1978,9 @@ async function checkAndRequestPermissions() {
                     // 显示重启指南
                     await dialog.showMessageBox({
                         type: 'info',
-                        title: 'N-Clip 应用重启指南',
-                        message: '如果您已经在系统偏好设置中授权了 N-Clip，但功能仍不工作：',
-                        detail: '请完全重启应用：\n\n1. 右键点击托盘中的 N-Clip 图标\n2. 选择"退出 N-Clip"\n3. 重新启动 N-Clip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
+                        title: 'LovClip 应用重启指南',
+                        message: '如果您已经在系统偏好设置中授权了 LovClip，但功能仍不工作：',
+                        detail: '请完全重启应用：\n\n1. 右键点击托盘中的 LovClip 图标\n2. 选择"退出 LovClip"\n3. 重新启动 LovClip 应用\n\n如果托盘图标不可见，请使用 Activity Monitor 强制退出应用。',
                         buttons: ['知道了', '立即退出应用']
                     }).then((restartResult: MessageBoxReturnValue) => {
                         if (restartResult.response === 1) {
@@ -2010,7 +2088,7 @@ async function showRestartDialog() {
         type: 'success',
         title: '权限授权成功',
         message: '检测到辅助功能权限已授予，是否立即重启应用以启用全部功能？',
-        detail: '重启后，N-Clip 将支持全局快捷键和所有高级功能。',
+        detail: '重启后，LovClip 将支持全局快捷键和所有高级功能。',
         buttons: ['立即重启', '稍后手动重启'],
         defaultId: 0
     })
@@ -2052,7 +2130,7 @@ async function getDiagnosticInfo() {
 
     try {
         // 基本信息
-        info.push('=== N-Clip 系统诊断信息 ===')
+        info.push('=== LovClip 系统诊断信息 ===')
         info.push(`时间: ${new Date().toLocaleString()}`)
         info.push(`平台: ${process.platform} ${process.arch}`)
         info.push(`Electron 版本: ${process.versions.electron}`)
@@ -2143,6 +2221,10 @@ app.whenReady().then(async () => {
         
         // 第一阶段：核心初始化（非阻塞）
         console.log('第一阶段：核心初始化')
+        
+        // 数据迁移（如果需要）
+        await migrateFromNClip()
+        
         await initDataStorage()
         registerIpcHandlers()
         

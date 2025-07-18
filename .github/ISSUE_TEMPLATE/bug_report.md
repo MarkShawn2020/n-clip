@@ -24,7 +24,7 @@ A clear and concise description of what actually happened.
 
 ## 📱 Environment
 - OS: [e.g. macOS 13.0, Windows 11, Ubuntu 22.04]
-- N-Clip Version: [e.g. 1.1.6]
+- LovClip Version: [e.g. 1.1.6]
 - Node.js Version: [if running from source]
 
 ## 📸 Screenshots

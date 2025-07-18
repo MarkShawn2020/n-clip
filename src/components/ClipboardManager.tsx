@@ -628,7 +628,7 @@ export default function ClipboardManager() {
       
       <div className="footer">
         <div className="branding">
-          <span className="brand-name">N-Clip</span>
+          <span className="brand-name">LovClip</span>
           <span className="brand-tagline">Copy. Paste. Repeat.</span>
         </div>
       </div>

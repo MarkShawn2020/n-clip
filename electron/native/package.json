@@ -1,7 +1,7 @@
 {
-  "name": "n-clip-accessibility",
+  "name": "lovclip-accessibility",
   "version": "1.0.0",
-  "description": "Native accessibility module for n-clip",
+  "description": "Native accessibility module for lovclip",
   "main": "build/Release/accessibility.node",
   "scripts": {
     "install": "node-gyp rebuild",

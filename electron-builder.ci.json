@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.neurora.n-clip",
-  "productName": "N-Clip",
+  "appId": "com.neurora.lovclip",
+  "productName": "LovClip",
   "asar": true,
   "npmRebuild": false,
   "buildDependenciesFromSource": false,
@@ -74,7 +74,7 @@
     {
       "provider": "github",
       "owner": "MarkShawn2020",
-      "repo": "n-clip",
+      "repo": "lovclip",
       "releaseType": "release"
     }
   ]

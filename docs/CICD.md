@@ -1,6 +1,6 @@
-# CI/CD Configuration for N-Clip
+# CI/CD Configuration for LovClip
 
-This document describes the Continuous Integration and Continuous Deployment setup for N-Clip.
+This document describes the Continuous Integration and Continuous Deployment setup for LovClip.
 
 ## Overview
 

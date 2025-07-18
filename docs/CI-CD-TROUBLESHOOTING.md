@@ -6,7 +6,7 @@
 
 **错误信息**:
 ```
-Error: Dependencies lock file is not found in /home/runner/work/n-clip/n-clip. 
+Error: Dependencies lock file is not found in /home/runner/work/lovclip/lovclip. 
 Supported file patterns: package-lock.json,npm-shrinkwrap.json,yarn.lock
 Will run Yarn commands in directory "."
 ```
@@ -207,7 +207,7 @@ Error: The operation was canceled.
 **错误信息**:
 ```
 empty password will be used for code signing  reason=CSC_KEY_PASSWORD is not defined
-⨯ /Users/runner/work/n-clip/n-clip not a file
+⨯ /Users/runner/work/lovclip/lovclip not a file
 ```
 
 **原因分析**:
