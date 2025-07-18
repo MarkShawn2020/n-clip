@@ -1,6 +1,6 @@
 module.exports = {
   branches: ['main'],
-  repositoryUrl: 'https://github.com/MarkShawn2020/n-clip',
+  repositoryUrl: 'https://github.com/MarkShawn2020/lovclip',
   plugins: [
     [
       '@semantic-release/commit-analyzer',
