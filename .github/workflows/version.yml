@@ -105,7 +105,7 @@ jobs:
         git push origin ${{ steps.version.outputs.new_version }}
         
     - name: Create GitHub Release
-      uses: ncipollo/create-release@v1
+      uses: ncipollo/create-release@v1.14.0
       with:
         tag: ${{ steps.version.outputs.new_version }}
         name: Release ${{ steps.version.outputs.new_version }}
