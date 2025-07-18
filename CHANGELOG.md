@@ -1,3 +1,15 @@
+
+## [4.0.0] - 2025-07-18
+
+### Added
+- New features and improvements
+
+### Changed
+- Updated dependencies
+
+### Fixed
+- Bug fixes and stability improvements
+
 ## [3.8.7](https://github.com/MarkShawn2020/lovclip/compare/v3.8.6...v3.8.7) (2025-07-17)
 
 
