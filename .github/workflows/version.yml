@@ -109,9 +109,9 @@ jobs:
         git push origin ${{ steps.version.outputs.new_version }}
         
     - name: Create GitHub Release
-      uses: ncipollo/create-release@v1
+      uses: softprops/action-gh-release@v1
       with:
-        tag: ${{ steps.version.outputs.new_version }}
+        tag_name: ${{ steps.version.outputs.new_version }}
         name: Release ${{ steps.version.outputs.new_version }}
         body: |
           ## Changes in ${{ steps.version.outputs.new_version }}
