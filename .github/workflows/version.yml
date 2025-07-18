@@ -17,6 +17,10 @@ on:
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     
     steps:
     - name: Check out Git repository
@@ -105,7 +109,7 @@ jobs:
         git push origin ${{ steps.version.outputs.new_version }}
         
     - name: Create GitHub Release
-      uses: ncipollo/create-release@v1.14.0
+      uses: ncipollo/create-release@v1
       with:
         tag: ${{ steps.version.outputs.new_version }}
         name: Release ${{ steps.version.outputs.new_version }}
