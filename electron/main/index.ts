@@ -24,6 +24,98 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 process.env.APP_ROOT = path.join(__dirname, '../..')
 
+// 添加全局未捕获异常处理器，防止无限弹窗
+process.on('uncaughtException', (error) => {
+    // 将错误写入文件而不是控制台，避免EIO错误
+    const errorMessage = `[${new Date().toISOString()}] Uncaught Exception: ${error.message}\n${error.stack}\n\n`;
+    const errorLogPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+    try {
+        // 确保目录存在
+        const logDir = path.dirname(errorLogPath);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        fs.appendFileSync(errorLogPath, errorMessage);
+    } catch (logError) {
+        // 如果连写入文件都失败，则静默忽略
+    }
+    
+    // 防止进程退出，保持应用运行
+    // 不使用console.error，直接写入文件
+    const logMessage = `[${new Date().toISOString()}] Uncaught exception handled, app continues running\n`;
+    try {
+        fs.appendFileSync(errorLogPath, logMessage);
+    } catch (logError) {
+        // 静默忽略
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    const errorMessage = `[${new Date().toISOString()}] Unhandled Rejection: ${reason}\n\n`;
+    const errorLogPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+    try {
+        // 确保目录存在
+        const logDir = path.dirname(errorLogPath);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        fs.appendFileSync(errorLogPath, errorMessage);
+    } catch (logError) {
+        // 如果连写入文件都失败，则静默忽略
+    }
+});
+
+// 保存原始的console方法
+const originalConsole = {
+    log: console.log,
+    error: console.error
+};
+
+// 创建安全的console包装器
+const safeConsole = {
+    log: (...args: any[]) => {
+        try {
+            originalConsole.log(...args);
+        } catch (error) {
+            // 如果console.log失败，直接写入文件
+            const logPath = path.join(os.homedir(), '.neurora', 'n-clip', 'app.log');
+            try {
+                // 确保目录存在
+                const logDir = path.dirname(logPath);
+                if (!fs.existsSync(logDir)) {
+                    fs.mkdirSync(logDir, { recursive: true });
+                }
+                const message = `[${new Date().toISOString()}] ${args.join(' ')}\n`;
+                fs.appendFileSync(logPath, message);
+            } catch (logError) {
+                // 静默忽略
+            }
+        }
+    },
+    error: (...args: any[]) => {
+        try {
+            originalConsole.error(...args);
+        } catch (error) {
+            // 如果console.error失败，直接写入文件
+            const logPath = path.join(os.homedir(), '.neurora', 'n-clip', 'error.log');
+            try {
+                // 确保目录存在
+                const logDir = path.dirname(logPath);
+                if (!fs.existsSync(logDir)) {
+                    fs.mkdirSync(logDir, { recursive: true });
+                }
+                const message = `[${new Date().toISOString()}] ERROR: ${args.join(' ')}\n`;
+                fs.appendFileSync(logPath, message);
+            } catch (logError) {
+                // 静默忽略
+            }
+        }
+    }
+};
+
+// 重写全局console对象
+(global as any).console = safeConsole;
+
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
