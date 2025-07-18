@@ -1,3 +1,11 @@
+## [4.0.1](https://github.com/MarkShawn2020/lovclip/compare/v4.0.0...v4.0.1) (2025-07-18)
+
+
+### Bug Fixes
+
+* resolve TypeScript errors in migration error handling ([f435996](https://github.com/MarkShawn2020/lovclip/commit/f435996457d62799c9859363335214e05dd4a219))
+* update repository URL in package.json to match renamed repository ([1e62d0d](https://github.com/MarkShawn2020/lovclip/commit/1e62d0db69cae8f256ed4b642c6aa97d384363d2))
+* update semantic-release repository URL to match renamed repository ([c12b4c9](https://github.com/MarkShawn2020/lovclip/commit/c12b4c9c00d90f93ad5b01a6b96c6e840b53207e))
 
 ## [4.0.0] - 2025-07-18
 
