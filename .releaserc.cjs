@@ -43,16 +43,8 @@ module.exports = {
       {
         assets: [
           {
-            path: 'release/**/*.dmg',
-            label: 'macOS DMG Installer'
-          },
-          {
             path: 'release/**/*.zip',
-            label: 'macOS ZIP Archive'
-          },
-          {
-            path: 'release/**/*.yml',
-            label: 'Update Info'
+            label: 'Application Archive'
           }
         ]
       }
