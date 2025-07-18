@@ -1,6 +1,6 @@
 {
   "name": "lovclip",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "main": "dist-electron/main/index.js",
   "description": "A modern clipboard manager with Alfred-like interface for neurora.",
   "author": "neurora",
