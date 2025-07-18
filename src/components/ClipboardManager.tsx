@@ -629,7 +629,7 @@ export default function ClipboardManager() {
       <div className="footer">
         <div className="branding">
           <span className="brand-name">LovClip</span>
-          <span className="brand-tagline">Copy. Paste. Repeat.</span>
+          <span className="brand-tagline">Beyond Copy & Paste</span>
         </div>
       </div>
       
