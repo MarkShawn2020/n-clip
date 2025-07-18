@@ -233,8 +233,8 @@ async function migrateFromNClip() {
         try {
             const errorLog = {
                 timestamp: new Date().toISOString(),
-                error: error.message,
-                stack: error.stack,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
                 oldPath,
                 newPath
             }
