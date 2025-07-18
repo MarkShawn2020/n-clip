@@ -97,7 +97,7 @@ git push origin $NEW_VERSION
 
 echo -e "${GREEN}✅ Release ${NEW_VERSION} has been pushed to GitHub!${NC}"
 echo -e "${YELLOW}📦 GitHub Actions will now build and publish the release automatically.${NC}"
-echo -e "${YELLOW}🔗 Check the progress at: https://github.com/mark/lovclip/actions${NC}"
+echo -e "${YELLOW}🔗 Check the progress at: https://github.com/MarkShawn2020/lovclip/actions${NC}"
 
 echo "========================================"
 echo -e "${GREEN}🎉 Release process completed!${NC}"
