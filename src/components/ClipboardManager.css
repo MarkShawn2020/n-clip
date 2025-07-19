@@ -1,33 +1,29 @@
 .clipboard-manager {
     width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 12px;
-    backdrop-filter: blur(20px);
-    box-shadow: none; /* 移除阴影，完全无装饰 */
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    height: 100vh;
+    background: rgba(249, 249, 247, 0.8);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    font-family: var(--font-family-sans);
+    color: var(--color-text-main);
     position: relative;
-    -webkit-app-region: no-drag; /* 内容区域不可拖拽 */
-    height: calc(100vh - 40px);
-    min-height: 260px;
+    -webkit-app-region: no-drag;
     display: flex;
     flex-direction: column;
-    border: none; /* 确保没有边框 */
+    margin: 0;
+    padding: 0;
 }
 
 
 .header {
-    padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.8);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: var(--spacing-m) var(--spacing-l);
+    background: rgba(240, 238, 230, 0.4);
     flex-shrink: 0;
     min-height: 60px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    -webkit-app-region: drag; /* 头部区域可拖拽移动窗口 */
+    -webkit-app-region: drag;
 }
 
 .search-container {
@@ -40,7 +36,7 @@
 
 .search-icon {
     font-size: 18px;
-    color: #666;
+    color: var(--color-text-faded);
 }
 
 .search-input {
@@ -50,12 +46,13 @@
     background: transparent;
     font-size: 18px;
     font-weight: 500;
-    color: #333;
+    color: var(--color-text-main);
+    font-family: var(--font-family-sans);
     padding: 0;
 }
 
 .search-input::placeholder {
-    color: #999;
+    color: var(--color-text-faded);
 }
 
 .header-actions {
@@ -66,13 +63,13 @@
 }
 
 .archive-btn {
-    background: none;
-    border: 1px solid #d1d5db;
-    color: #374151;
-    padding: 8px 12px;
-    border-radius: 6px;
+    background: rgba(217, 119, 87, 0.1);
+    color: var(--color-text-main);
+    padding: var(--spacing-s) var(--spacing-m);
+    border-radius: var(--radius-m);
     cursor: pointer;
     font-size: 13px;
+    font-family: var(--font-family-sans);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -80,9 +77,9 @@
 }
 
 .archive-btn:hover {
-    background: rgba(0, 122, 255, 0.1);
-    border-color: #007AFF;
-    color: #007AFF;
+    background: rgba(217, 119, 87, 0.1);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
 /* 主要内容区域 */
@@ -96,9 +93,9 @@
 .left-panel {
     flex: 1 1 40%;
     min-width: 160px;
-    border-right: 1px solid rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
+    background: rgba(240, 238, 230, 0.2);
 }
 
 .items-container {
@@ -114,17 +111,18 @@
     min-width: 200px;
     display: flex;
     flex-direction: column;
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(247, 244, 236, 0.3);
 }
 
 .item {
     display: flex;
     align-items: center;
-    padding: 12px 24px;
+    padding: var(--spacing-m) var(--spacing-l);
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    border-left: 3px solid transparent;
-    gap: 16px;
+    transition: all 0.2s ease;
+    gap: var(--spacing-m);
+    margin: 0 var(--spacing-s);
+    border-radius: var(--radius-s);
 }
 
 /* Pin动画效果 */
@@ -149,49 +147,32 @@
 }
 
 .item:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(217, 119, 87, 0.08);
 }
 
 .item.selected {
-    background: rgba(0, 122, 255, 0.1);
-    border-left-color: #007AFF;
+    background: rgba(217, 119, 87, 0.15);
 }
 
 .item.pinned {
-    background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.08) 0%, 
-        rgba(168, 85, 247, 0.06) 100%);
-    border-left-color: #6366f1;
+    background: rgba(217, 119, 87, 0.12);
     position: relative;
-    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.1),
-                0 1px 2px rgba(99, 102, 241, 0.06);
-    transform: translateY(-1px);
-    border-radius: 6px;
-    margin: 2px 8px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--radius-m);
+    margin: var(--spacing-xs) var(--spacing-s);
+    transition: all 0.2s ease;
 }
 
 .item.pinned::before {
-    content: '';
+    content: '📌';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, 
-        rgba(99, 102, 241, 0.3) 0%, 
-        transparent 100%);
-    border-radius: 6px 6px 0 0;
+    top: var(--spacing-xs);
+    right: var(--spacing-xs);
+    font-size: 10px;
+    opacity: 0.6;
 }
 
 .item.pinned.selected {
-    background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.15) 0%, 
-        rgba(168, 85, 247, 0.12) 100%);
-    border-left-color: #6366f1;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15),
-                0 2px 4px rgba(99, 102, 241, 0.1);
-    transform: translateY(-2px);
+    background: rgba(217, 119, 87, 0.2);
 }
 
 .item.draggable-item {
@@ -220,12 +201,9 @@
     width: 24px;
     height: 24px;
     object-fit: contain;
-    border-radius: 4px;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-s);
     cursor: pointer;
-    /* 使用安全的过渡效果避免抖动 */
-    transition: opacity 0.2s ease, filter 0.2s ease;
-    will-change: opacity, filter;
+    transition: opacity 0.2s ease;
 }
 
 .item-image-preview:hover {
@@ -241,24 +219,27 @@
 
 .item-text {
     font-size: 16px;
-    color: #333;
+    color: var(--color-text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     font-weight: 500;
+    font-family: var(--font-family-sans);
 }
 
 .item-size {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-faded);
     margin-top: 2px;
+    font-family: var(--font-family-sans);
 }
 
 .item-size-inline {
     font-size: 12px;
-    color: #999;
+    color: var(--color-text-faded);
     font-weight: 400;
     margin-left: 8px;
+    font-family: var(--font-family-sans);
 }
 
 .item-meta {
@@ -270,37 +251,38 @@
 
 .item-pin-indicator {
     font-size: 12px;
-    color: #6366f1;
+    color: var(--color-primary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 18px;
     height: 18px;
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(217, 119, 87, 0.1);
     border-radius: 50%;
     margin-right: 4px;
     transition: all 0.2s ease;
 }
 
 .item.pinned:hover .item-pin-indicator {
-    background: rgba(99, 102, 241, 0.2);
-    transform: scale(1.1);
+    background: rgba(217, 119, 87, 0.2);
 }
 
 .item-shortcut {
     font-size: 14px;
-    color: #007AFF;
+    color: var(--color-primary);
     font-weight: 600;
     min-width: 40px;
     text-align: right;
     flex-shrink: 0;
+    font-family: var(--font-family-sans);
 }
 
 .no-results {
     text-align: center;
     padding: 40px 24px;
-    color: #666;
+    color: var(--color-text-faded);
     font-size: 16px;
+    font-family: var(--font-family-sans);
 }
 
 /* 预览区域样式 */
@@ -320,9 +302,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: var(--spacing-m);
+    padding-bottom: var(--spacing-s);
     flex-shrink: 0;
     width: 100%;
 }
@@ -342,27 +323,23 @@
 
 .template-select,
 .ratio-select {
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
-    padding: 4px 8px;
+    background: rgba(217, 119, 87, 0.1);
+    border-radius: var(--radius-s);
+    padding: var(--spacing-xs) var(--spacing-s);
     font-size: 12px;
-    color: #333;
+    color: var(--color-text-main);
     cursor: pointer;
     transition: all 0.2s ease;
-    outline: none;
 }
 
 .template-select:hover,
 .ratio-select:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(217, 119, 87, 0.15);
 }
 
 .template-select:focus,
 .ratio-select:focus {
-    border-color: #007AFF;
-    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+    background: rgba(217, 119, 87, 0.2);
 }
 
 .preview-actions {
@@ -378,114 +355,71 @@
 }
 
 .action-btn {
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
-    padding: 6px 8px;
+    background: rgba(240, 238, 230, 0.4);
+    border-radius: var(--radius-m);
+    padding: var(--spacing-s) var(--spacing-s);
     cursor: pointer;
     font-size: 14px;
     transition: all 0.2s ease;
-    backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
+    font-family: var(--font-family-sans);
 }
 
 .pin-btn {
-    color: #6366f1;
-    position: relative;
-    overflow: hidden;
+    color: var(--color-primary);
 }
 
-.pin-btn::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(99, 102, 241, 0.2);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.3s ease, height 0.3s ease;
-    z-index: 0;
-}
 
-.pin-btn:hover::before {
-    width: 100%;
-    height: 100%;
-}
 
 .pin-btn:hover {
-    background: rgba(99, 102, 241, 0.1);
-    border-color: rgba(99, 102, 241, 0.3);
-    transform: translateY(-1px);
+    background: rgba(217, 119, 87, 0.1);
 }
 
 .star-btn {
-    color: #f59e0b;
-    position: relative;
-    overflow: hidden;
+    color: var(--color-swatch-olive);
 }
 
-.star-btn::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    background: rgba(245, 158, 11, 0.2);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    transition: width 0.3s ease, height 0.3s ease;
-    z-index: 0;
-}
 
-.star-btn:hover::before {
-    width: 100%;
-    height: 100%;
-}
 
 .star-btn:hover {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.3);
-    transform: translateY(-1px);
+    background: rgba(194, 192, 125, 0.15);
 }
 
 .action-btn:hover {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(0, 0, 0, 0.2);
-    transform: translateY(-1px);
+    background: rgba(217, 119, 87, 0.1);
 }
 
 .action-btn:active {
-    transform: translateY(0);
+    background: rgba(217, 119, 87, 0.15);
 }
 
 .share-btn:hover {
-    background: rgba(0, 122, 255, 0.1);
-    border-color: #007AFF;
+    background: rgba(217, 119, 87, 0.1);
+    border-color: var(--color-primary);
 }
 
 .delete-btn:hover {
-    background: rgba(255, 59, 48, 0.1);
-    border-color: #FF3B30;
+    background: rgba(204, 120, 92, 0.15);
+    border-color: var(--color-bg-clay);
 }
 
 .preview-type {
     font-size: 14px;
     font-weight: 600;
-    color: #007AFF;
+    color: var(--color-primary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-family: var(--font-family-sans);
 }
 
 .preview-size {
     font-size: 12px;
-    color: #666;
-    background: rgba(0, 0, 0, 0.05);
+    color: var(--color-text-faded);
+    background: var(--color-swatch-cloud-light);
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-family-sans);
 }
 
 .preview-content {
@@ -502,10 +436,10 @@
 .preview-text {
     font-size: 14px;
     line-height: 1.6;
-    color: #333;
+    color: var(--color-text-main);
     white-space: pre-wrap;
     word-wrap: break-word;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Monaco, 'Cascadia Code', 'Consolas', monospace;
+    font-family: var(--font-family-sans);
     padding: 12px;
     width: 100%;
     height: 100%;
@@ -521,16 +455,13 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-s);
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
-    /* 添加平滑过渡，移除transform避免抖动 */
-    transition: opacity 0.2s ease, filter 0.2s ease;
-    will-change: opacity, filter;
+    transition: opacity 0.2s ease;
 }
 
 .preview-image:active {
@@ -544,18 +475,18 @@
 }
 
 .preview-footer {
-    padding: 12px 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding: var(--spacing-m) var(--spacing-l);
     flex-shrink: 0;
     text-align: center;
     min-height: 44px;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(232, 230, 220, 0.3);
 }
 
 .preview-timestamp {
     font-size: 12px;
-    color: #666;
+    color: var(--color-text-faded);
     text-align: center;
+    font-family: var(--font-family-sans);
 }
 
 /* 预览占位符 */
@@ -565,7 +496,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #999;
+    color: var(--color-text-faded);
     padding: 20px;
     min-height: 0;
 }
@@ -579,15 +510,14 @@
 .placeholder-text {
     font-size: 14px;
     font-weight: 500;
+    font-family: var(--font-family-sans);
 }
 
 /* 底部品牌标识 */
 .footer {
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(10px);
+    background: rgba(240, 238, 230, 0.4);
     flex-shrink: 0;
-    padding: 12px 20px;
+    padding: var(--spacing-m) var(--spacing-l);
 }
 
 .branding {
@@ -597,23 +527,28 @@
     gap: 8px;
 }
 
+.brand-logo {
+    height: 20px;
+    width: auto;
+}
+
 .brand-name {
     font-size: 16px;
     font-weight: 800;
-    color: #007AFF;
+    color: var(--color-primary);
     letter-spacing: -0.8px;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    font-family: var(--font-family-sans);
     transform: skew(-8deg);
-    text-shadow: 0 1px 3px rgba(0, 122, 255, 0.3);
 }
 
 .brand-tagline {
     font-size: 11px;
-    color: #888;
+    color: var(--color-text-faded);
     font-weight: 600;
     opacity: 0.9;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    font-family: var(--font-family-sans);
 }
 
 /* 滚动条样式 */
@@ -629,13 +564,122 @@
 
 .items-container::-webkit-scrollbar-thumb,
 .preview-content::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-text-faded);
     border-radius: 3px;
+    opacity: 0.4;
 }
 
 .items-container::-webkit-scrollbar-thumb:hover,
 .preview-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--color-text-faded);
+    opacity: 0.6;
+}
+
+/* 温暖暗色模式 */
+@media (prefers-color-scheme: dark) {
+  .clipboard-manager {
+    background: var(--color-bg-dark);
+    color: var(--color-text-dark-main);
+  }
+
+  .header {
+    background: rgba(61, 61, 58, 0.4);
+  }
+
+  .search-input {
+    color: var(--color-text-dark-main);
+  }
+
+  .search-input::placeholder {
+    color: var(--color-text-dark-faded);
+  }
+
+  .archive-btn {
+    color: var(--color-text-dark-main);
+  }
+
+  .archive-btn:hover {
+    background: rgba(217, 119, 87, 0.15);
+    color: var(--color-primary);
+  }
+
+  .right-panel {
+    background: var(--color-bg-faded);
+  }
+
+  .item:hover {
+    background: var(--color-bg-faded);
+  }
+
+  .item.selected {
+    background: rgba(217, 119, 87, 0.2);
+  }
+
+  .item-text {
+    color: var(--color-text-dark-main);
+  }
+
+  .item-size,
+  .item-size-inline {
+    color: var(--color-text-dark-faded);
+  }
+
+  .no-results {
+    color: var(--color-text-dark-faded);
+  }
+
+  .preview-type {
+    color: var(--color-primary);
+  }
+
+  .preview-size {
+    color: var(--color-text-dark-faded);
+    background: var(--color-bg-faded);
+  }
+
+  .preview-text {
+    color: var(--color-text-dark-main);
+  }
+
+  .action-btn {
+    background: var(--color-bg-faded);
+    border-color: var(--color-text-faded);
+  }
+
+  .action-btn:hover {
+    background: var(--color-bg-dark);
+    border-color: var(--color-primary);
+  }
+
+  .preview-footer {
+    background: var(--color-bg-faded);
+    border-top-color: var(--color-text-faded);
+  }
+
+  .preview-timestamp {
+    color: var(--color-text-dark-faded);
+  }
+
+  .preview-placeholder {
+    color: var(--color-text-dark-faded);
+  }
+
+  .footer {
+    background: var(--color-bg-faded);
+    border-top-color: var(--color-text-faded);
+  }
+
+  .brand-name {
+    color: var(--color-primary);
+  }
+
+  .brand-tagline {
+    color: var(--color-text-dark-faded);
+  }
+
+  .brand-logo {
+    filter: drop-shadow(0 1px 3px rgba(217, 119, 87, 0.5));
+  }
 }
 
 /* 响应式设计 */
@@ -697,14 +741,14 @@
     
     .item.selected {
         background: rgba(0, 122, 255, 0.15);
-        border-bottom-color: #007AFF;
+        border-bottom-color: var(--color-primary);
     }
     
     .item.pinned {
         background: linear-gradient(135deg, 
             rgba(99, 102, 241, 0.12) 0%, 
             rgba(168, 85, 247, 0.08) 100%);
-        border-bottom-color: #6366f1;
+        border-bottom-color: var(--color-primary);
         box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
         transform: translateY(-1px);
     }
@@ -713,7 +757,7 @@
         background: linear-gradient(135deg, 
             rgba(99, 102, 241, 0.2) 0%, 
             rgba(168, 85, 247, 0.15) 100%);
-        border-bottom-color: #6366f1;
+        border-bottom-color: var(--color-primary);
         box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
         transform: translateY(-2px);
     }
@@ -859,7 +903,7 @@
     background: rgba(255, 255, 255, 0.9);
     border: none;
     border-radius: 50%;
-    color: #333;
+    color: var(--color-text-main);
     font-size: 18px;
     font-weight: bold;
     cursor: pointer;
@@ -967,12 +1011,12 @@
     gap: 8px;
     font-size: 18px;
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-main);
 }
 
 .share-card-type {
     font-size: 14px;
-    color: #666;
+    color: var(--color-text-faded);
     font-weight: 500;
     text-transform: uppercase;
 }
@@ -981,7 +1025,7 @@
     background: none;
     border: none;
     font-size: 18px;
-    color: #666;
+    color: var(--color-text-faded);
     cursor: pointer;
     width: 32px;
     height: 32px;
@@ -994,7 +1038,7 @@
 
 .share-card-close:hover {
     background: rgba(0, 0, 0, 0.1);
-    color: #333;
+    color: var(--color-text-main);
 }
 
 .share-card-content {
@@ -1022,7 +1066,7 @@
 .control-group label {
     font-size: 14px;
     font-weight: 600;
-    color: #333;
+    color: var(--color-text-main);
 }
 
 .share-card-preview {
@@ -1042,14 +1086,14 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    color: #666;
+    color: var(--color-text-faded);
 }
 
 .loading-spinner {
     width: 32px;
     height: 32px;
     border: 3px solid rgba(0, 122, 255, 0.3);
-    border-top: 3px solid #007AFF;
+    border-top: 3px solid var(--color-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -1116,7 +1160,7 @@
 
 .btn-secondary {
     background: rgba(0, 0, 0, 0.1);
-    color: #333;
+    color: var(--color-text-main);
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -1124,7 +1168,7 @@
 }
 
 .btn-primary {
-    background: #007AFF;
+    background: var(--color-primary);
     color: white;
 }
 

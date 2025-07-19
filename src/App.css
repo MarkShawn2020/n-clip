@@ -1,14 +1,23 @@
 .App {
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgba(249, 249, 247, 0.95); /* Subtle warm background with transparency */
+  backdrop-filter: blur(20px); /* Subtle blur for depth */
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 0; /* No padding for true minimal design */
   box-sizing: border-box;
   margin: 0;
   -webkit-app-region: drag; /* 整个App可拖拽 */
+}
+
+/* Dark mode minimal background */
+@media (prefers-color-scheme: dark) {
+  .App {
+    background: rgba(20, 20, 19, 0.95);
+  }
 }
 
 #root {

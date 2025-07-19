@@ -79,8 +79,8 @@ export default function PermissionDialog({ isOpen, onClose, onPermissionGranted 
             <div className="permission-request">
               <div className="permission-icon">🔒</div>
               <h3>需要辅助功能权限</h3>
-              <p>为了实现 Alfred 风格的直接文本插入功能，LovClip 需要访问辅助功能权限。</p>
-              <p>这将允许 LovClip 直接将文本插入到其他应用程序的输入框中，而不需要手动粘贴。</p>
+              <p>为了实现 Alfred 风格的直接文本插入功能，LovPen 需要访问辅助功能权限。</p>
+              <p>这将允许 LovPen 直接将文本插入到其他应用程序的输入框中，而不需要手动粘贴。</p>
               
               <div className="permission-features">
                 <h4>启用后您将获得：</h4>
@@ -127,8 +127,8 @@ export default function PermissionDialog({ isOpen, onClose, onPermissionGranted 
                 <li>点击 <strong>"安全性与隐私"</strong></li>
                 <li>选择左侧的 <strong>"辅助功能"</strong></li>
                 <li>点击左下角的 <strong>"锁"</strong> 图标并输入密码</li>
-                <li>在右侧列表中找到 <strong>"LovClip"</strong> 并勾选</li>
-                <li>重启 LovClip 以生效</li>
+                <li>在右侧列表中找到 <strong>"LovPen"</strong> 并勾选</li>
+                <li>重启 LovPen 以生效</li>
               </ol>
               
               <div className="instruction-actions">
@@ -146,7 +146,7 @@ export default function PermissionDialog({ isOpen, onClose, onPermissionGranted 
             <div className="permission-success">
               <div className="success-icon">✅</div>
               <h3>权限已授予！</h3>
-              <p>LovClip 现在可以直接将文本插入到其他应用程序中。</p>
+              <p>LovPen 现在可以直接将文本插入到其他应用程序中。</p>
               <p>享受 Alfred 风格的无缝体验吧！</p>
             </div>
           )}

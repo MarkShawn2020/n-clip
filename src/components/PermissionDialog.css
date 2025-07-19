@@ -13,13 +13,14 @@
 }
 
 .permission-dialog {
-  background: white;
-  border-radius: 12px;
+  background: rgba(249, 249, 247, 0.95);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: var(--radius-l);
   max-width: 500px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   animation: dialogSlideIn 0.3s ease-out;
 }
 
@@ -38,8 +39,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid #e5e5e5;
+  padding: var(--spacing-xl) var(--spacing-l) var(--spacing-l);
 }
 
 .permission-dialog-header h2 {
@@ -50,19 +50,18 @@
 }
 
 .close-button {
-  background: none;
-  border: none;
+  background: rgba(217, 119, 87, 0.1);
   font-size: 24px;
-  color: #666;
+  color: var(--color-text-main);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-s);
   transition: all 0.2s;
 }
 
 .close-button:hover {
-  background: #f0f0f0;
-  color: #333;
+  background: rgba(217, 119, 87, 0.2);
+  color: var(--color-primary);
 }
 
 .permission-dialog-content {
@@ -77,11 +76,11 @@
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #667eea;
+  border: 3px solid rgba(217, 119, 87, 0.1);
+  border-top: 3px solid var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
+  margin: 0 auto var(--spacing-l);
 }
 
 @keyframes spin {
@@ -112,10 +111,10 @@
 }
 
 .permission-features {
-  background: #f8f9ff;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 20px 0;
+  background: rgba(217, 119, 87, 0.05);
+  border-radius: var(--radius-m);
+  padding: var(--spacing-l);
+  margin: var(--spacing-xl) 0;
   text-align: left;
 }
 
@@ -123,7 +122,7 @@
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .permission-features ul {
@@ -146,11 +145,10 @@
 
 .request-button {
   flex: 1;
-  background: #667eea;
+  background: var(--color-primary);
   color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
+  border-radius: var(--radius-m);
+  padding: var(--spacing-m) var(--spacing-l);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -158,17 +156,15 @@
 }
 
 .request-button:hover {
-  background: #5a6fd8;
-  transform: translateY(-1px);
+  background: rgba(217, 119, 87, 0.9);
 }
 
 .skip-button {
   flex: 1;
-  background: #f0f0f0;
-  color: #666;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
+  background: rgba(135, 134, 127, 0.1);
+  color: var(--color-text-faded);
+  border-radius: var(--radius-m);
+  padding: var(--spacing-m) var(--spacing-l);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -176,8 +172,8 @@
 }
 
 .skip-button:hover {
-  background: #e5e5e5;
-  color: #333;
+  background: rgba(135, 134, 127, 0.15);
+  color: var(--color-text-main);
 }
 
 .permission-instructions {
@@ -225,7 +221,7 @@
   position: absolute;
   left: 0;
   top: 0;
-  background: #667eea;
+  background: var(--color-primary);
   color: white;
   width: 20px;
   height: 20px;
@@ -238,7 +234,7 @@
 }
 
 .open-settings-button {
-  background: #667eea;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 6px;
@@ -262,7 +258,7 @@
 
 .recheck-button {
   flex: 1;
-  background: #667eea;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 8px;

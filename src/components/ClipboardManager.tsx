@@ -628,7 +628,12 @@ export default function ClipboardManager() {
       
       <div className="footer">
         <div className="branding">
-          <span className="brand-name">LovClip</span>
+          <img 
+            src="/src/assets/logo/LovPen-pure-logo.svg" 
+            alt="LovPen Logo" 
+            className="brand-logo"
+          />
+          <span className="brand-name">LovPen</span>
           <span className="brand-tagline">Beyond Copy & Paste</span>
         </div>
       </div>

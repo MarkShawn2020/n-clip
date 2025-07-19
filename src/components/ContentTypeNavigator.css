@@ -3,10 +3,9 @@
 .content-type-navigator {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px 16px 0 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e5e7;
+  gap: var(--spacing-s);
+  padding: var(--spacing-l) var(--spacing-l) 0 var(--spacing-l);
+  background: rgba(249, 249, 247, 0.8);
 }
 
 .content-type-tabs {
@@ -25,29 +24,28 @@
 .content-type-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: var(--spacing-s);
+  padding: var(--spacing-s) var(--spacing-l);
   background: none;
-  border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-m);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   min-width: fit-content;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family-sans);
 }
 
 .content-type-tab:hover {
-  background: #f5f5f7;
+  background: var(--color-swatch-cloud-light);
 }
 
 .content-type-tab.active {
-  background: #007AFF;
+  background: var(--color-primary);
   color: white;
 }
 
 .content-type-tab.active:hover {
-  background: #0056b3;
+  background: var(--color-bg-clay);
 }
 
 /* Tab Elements */
@@ -87,7 +85,7 @@
 
 .layout-type {
   font-size: 11px;
-  color: #86868b;
+  color: var(--color-text-faded);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -148,7 +146,7 @@
 
 /* Content Type Specific Styling */
 .content-type-tab[data-type="text"] {
-  --accent-color: #007AFF;
+  --accent-color: var(--color-primary);
 }
 
 .content-type-tab[data-type="image"] {
@@ -198,7 +196,7 @@
 
 /* Active states with accent colors */
 .content-type-tab[data-type="text"].active {
-  background: #007AFF;
+  background: var(--color-primary);
 }
 
 .content-type-tab[data-type="image"].active {

@@ -10,12 +10,12 @@ export default function ShareCardWindow() {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const templates = [
-    { value: 'default', label: '经典蓝' },
-    { value: 'ultrathin', label: '极薄' },
-    { value: 'dark', label: '暗夜' },
+    { value: 'default', label: '温暖陶土' },
+    { value: 'ultrathin', label: '极简象牙' },
+    { value: 'dark', label: '暖夜' },
     { value: 'pastel', label: '柔和' },
-    { value: 'luxury', label: '奢华金' },
-    { value: 'monochrome', label: '黑白' },
+    { value: 'luxury', label: '奢华陶土' },
+    { value: 'monochrome', label: '水墨' },
     { value: 'sunset', label: '日落' }
   ]
 

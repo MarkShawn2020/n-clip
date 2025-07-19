@@ -1,25 +1,74 @@
 @import 'tailwindcss';
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
+/* LovClip Design System - Warm & Organic Palette */
+@theme {
+  /* Primary color - warm terracotta */
+  --color-primary: #D97757;
+  
+  /* Light mode text colors */
+  --color-text-main: #181818;
+  --color-text-faded: #87867F;
+  
+  /* Light mode background colors */
+  --color-bg-main: #F9F9F7;
+  --color-bg-ivory-medium: #F0EEE6;
+  --color-bg-oat: #F7F4EC;
+  --color-bg-clay: #CC785C;
+  
+  /* Dark mode colors */
+  --color-bg-dark: #141413;
+  --color-bg-faded: #3D3D3A;
+  --color-text-dark-main: #F9F9F7;
+  --color-text-dark-faded: #87867F;
+  
+  /* Minimal separators - subtle color differences only */
+  --color-separator: rgba(135, 134, 127, 0.1);
+  
+  /* Accent swatches - muted for minimal design */
+  --color-swatch-slate-light: #87867F;
+  --color-swatch-cloud-light: rgba(232, 230, 220, 0.3);
+  --color-swatch-fig: rgba(180, 159, 216, 0.3);
+  --color-swatch-olive: rgba(194, 192, 125, 0.3);
+  --color-swatch-cactus: rgba(98, 154, 144, 0.3);
+  --color-swatch-sky: rgba(151, 181, 213, 0.3);
+  --color-swatch-heather: rgba(210, 190, 223, 0.3);
+  
+  /* Typography */
+  --font-family-sans: 'Fira Code', ui-sans-serif, system-ui, sans-serif;
+  --font-family-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+  
+  /* Minimal spacing system */
+  --spacing-xs: 0.25rem;
+  --spacing-s: 0.5rem;
+  --spacing-m: 1rem;
+  --spacing-l: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Minimal border radius */
+  --radius-s: 0.25rem;
+  --radius-m: 0.5rem;
+  --radius-l: 1rem;
+}
 
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+/* Dark mode color mappings - minimal and subtle */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-main: var(--color-text-dark-main);
+    --color-bg-main: var(--color-bg-dark);
+    --color-bg-ivory-medium: var(--color-bg-faded);
+    --color-bg-oat: var(--color-bg-faded);
+    --color-swatch-cloud-light: rgba(61, 61, 58, 0.3);
+    --color-separator: rgba(135, 134, 127, 0.15);
   }
 }
 
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
 * {
   box-sizing: border-box;
+  border: none; /* Remove all borders globally */
+  outline: none; /* Remove all outlines globally */
 }
 
 html, body {
@@ -27,12 +76,16 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-family-sans);
+  color: var(--color-text-main);
+  background: transparent; /* Transparent for window transparency */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* Prevent scrollbars in minimal design */
 }
 
 #root {
   width: 100%;
   height: 100%;
+  background: transparent;
 }

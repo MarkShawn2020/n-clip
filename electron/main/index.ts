@@ -347,16 +347,16 @@ async function createWindow() {
     windowReady = false
 
     win = new BrowserWindow({
-        title: 'LovClip',
+        title: 'LovPen',
         width: 800,
         height: 600,
         show: false, // 初始隐藏
-        // 临时启用frame和shadow用于调试可见性
+        // 完全无边框无阴影的极简面板
         frame: false,
-        transparent: false, // 临时改为非透明
-        hasShadow: true, // 临时启用阴影
+        transparent: true,
+        hasShadow: false,
         titleBarStyle: 'hidden',
-        backgroundColor: '#1e1e1e', // 添加深色背景
+        backgroundColor: 'rgba(0,0,0,0)', // 透明背景
         // 前台显示且可交互的关键配置
         alwaysOnTop: true,
         skipTaskbar: true,
@@ -368,7 +368,7 @@ async function createWindow() {
         // 关键：Alfred风格焦点管理配置
         focusable: true, // 允许接收键盘事件
         acceptFirstMouse: true, // 允许点击激活以便检测失焦
-        // vibrancy: 'under-window', // 临时禁用
+        vibrancy: 'under-window', // 启用模糊效果
         webPreferences: {
             preload,
             nodeIntegration: false,
@@ -1367,17 +1367,20 @@ async function openArchiveWindow() {
 
     try {
         archiveWindow = new BrowserWindow({
-            title: 'LovClip 档案库',
+            title: 'LovPen 档案库',
             width: 1000,
             height: 700,
             minWidth: 800,
             minHeight: 600,
-            frame: true,
-            transparent: false,
+            frame: false,
+            transparent: true,
+            hasShadow: false,
             resizable: true,
             alwaysOnTop: false,
             skipTaskbar: false,
             show: false,
+            backgroundColor: 'rgba(0,0,0,0)',
+            vibrancy: 'under-window',
             icon: (() => {
                 // 优先使用 logo.png，备用 favicon.ico
                 const logoPngPath = path.join(process.env.VITE_PUBLIC, 'logo.png')
