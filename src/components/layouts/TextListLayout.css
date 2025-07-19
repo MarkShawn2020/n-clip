@@ -28,7 +28,7 @@
 }
 
 .text-item:hover {
-  background: rgba(217, 119, 87, 0.05);
+  background: rgba(217, 119, 87, 0.03);
 }
 
 /* Text Item Header */
@@ -51,7 +51,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  background: rgba(217, 119, 87, 0.1);
+  background: rgba(217, 119, 87, 0.06);
   border-radius: var(--radius-s);
   font-size: 12px;
   font-weight: 600;
@@ -235,21 +235,19 @@
   max-width: 300px;
 }
 
-/* Dark Mode Support */
+/* Dark Mode Support - 温暖色调 */
 @media (prefers-color-scheme: dark) {
   .text-item {
-    background: #1c1c1e;
-    border-color: #38383a;
+    background: rgba(20, 20, 19, 0.8);
   }
   
   .text-item:hover {
-    border-color: var(--color-primary);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+    background: rgba(217, 119, 87, 0.05);
   }
   
   .type-icon {
-    background: #2c2c2e;
-    color: #f2f2f7;
+    background: rgba(217, 119, 87, 0.08);
+    color: var(--color-text-dark-main);
   }
   
   .text-preview {

@@ -8,6 +8,20 @@
   flex-direction: column;
   font-family: var(--font-family-sans);
   color: var(--color-text-main);
+  padding-top: 28px; /* Space for traffic lights */
+  -webkit-app-region: drag; /* Make entire window draggable initially */
+}
+
+/* Traffic lights draggable area */
+.archive-library::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  -webkit-app-region: drag;
+  z-index: 1;
 }
 
 .archive-header {
@@ -16,6 +30,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  -webkit-app-region: drag; /* Make header draggable */
 }
 
 .archive-title {
@@ -29,9 +44,10 @@
 .view-toggle {
   display: flex;
   gap: var(--spacing-xs);
-  background: rgba(217, 119, 87, 0.1);
+  background: rgba(217, 119, 87, 0.05);
   border-radius: var(--radius-m);
   padding: var(--spacing-xs);
+  -webkit-app-region: no-drag;
 }
 
 .toggle-btn {
@@ -42,15 +58,16 @@
   font-size: 14px;
   transition: all 0.2s ease;
   color: var(--color-text-main);
+  -webkit-app-region: no-drag;
 }
 
 .toggle-btn:hover {
-  background: rgba(217, 119, 87, 0.15);
+  background: rgba(217, 119, 87, 0.08);
 }
 
 .toggle-btn.active {
-  background: var(--color-primary);
-  color: white;
+  background: rgba(217, 119, 87, 0.2);
+  color: var(--color-primary);
 }
 
 .back-btn {
@@ -61,10 +78,11 @@
   padding: var(--spacing-s) var(--spacing-m);
   border-radius: var(--radius-s);
   transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
 }
 
 .back-btn:hover {
-  background: rgba(217, 119, 87, 0.1);
+  background: rgba(217, 119, 87, 0.05);
 }
 
 .archive-title h2 {
@@ -79,27 +97,32 @@
   flex: 1;
   max-width: 400px;
   margin-left: 32px;
+  -webkit-app-region: no-drag;
 }
 
 .search-input {
   width: 100%;
   padding: var(--spacing-m) var(--spacing-l);
-  background: rgba(217, 119, 87, 0.05);
+  background: rgba(217, 119, 87, 0.03);
   border-radius: var(--radius-m);
   font-size: 14px;
   transition: all 0.2s ease;
   color: var(--color-text-main);
   font-family: var(--font-family-sans);
+  -webkit-app-region: no-drag;
 }
 
 .search-input:focus {
-  background: rgba(217, 119, 87, 0.1);
+  background: rgba(217, 119, 87, 0.08);
 }
 
 .archive-content {
   flex: 1;
   display: flex;
   overflow: hidden;
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 2;
 }
 
 /* Enhanced content area styles */
@@ -132,6 +155,7 @@
   background: rgba(240, 238, 230, 0.3);
   padding: var(--spacing-xl) 0;
   overflow-y: auto;
+  -webkit-app-region: no-drag;
 }
 
 .category-list {
@@ -150,12 +174,12 @@
 }
 
 .category-item:hover {
-  background: rgba(217, 119, 87, 0.08);
+  background: rgba(217, 119, 87, 0.05);
 }
 
 .category-item.active {
-  background: var(--color-primary);
-  color: white;
+  background: rgba(217, 119, 87, 0.15);
+  color: var(--color-primary);
 }
 
 .category-icon {
@@ -192,6 +216,7 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--spacing-l);
   align-content: start;
+  -webkit-app-region: no-drag;
 }
 
 .archive-item {
@@ -205,7 +230,7 @@
 }
 
 .archive-item:hover {
-  background: rgba(217, 119, 87, 0.05);
+  background: rgba(217, 119, 87, 0.03);
 }
 
 .item-header {
@@ -242,7 +267,7 @@
 }
 
 .unstar-btn:hover {
-  background: rgba(194, 192, 125, 0.15);
+  background: rgba(194, 192, 125, 0.08);
 }
 
 .item-content {
@@ -283,7 +308,7 @@
 
 .tag {
   font-size: 11px;
-  background: rgba(217, 119, 87, 0.1);
+  background: rgba(217, 119, 87, 0.06);
   color: var(--color-text-main);
   padding: var(--spacing-xs) var(--spacing-s);
   border-radius: var(--radius-s);
@@ -340,7 +365,7 @@
 
   /* View toggle dark mode */
   .view-toggle {
-    background: rgba(217, 119, 87, 0.15);
+    background: rgba(217, 119, 87, 0.08);
   }
 
   .toggle-btn {
@@ -348,21 +373,21 @@
   }
 
   .toggle-btn:hover {
-    background: rgba(217, 119, 87, 0.2);
+    background: rgba(217, 119, 87, 0.12);
   }
 
   .toggle-btn.active {
-    background: var(--color-primary);
-    color: white;
+    background: rgba(217, 119, 87, 0.2);
+    color: var(--color-primary);
   }
 
   .search-input {
-    background: rgba(217, 119, 87, 0.1);
+    background: rgba(217, 119, 87, 0.05);
     color: var(--color-text-dark-main);
   }
 
   .search-input:focus {
-    background: rgba(217, 119, 87, 0.15);
+    background: rgba(217, 119, 87, 0.1);
   }
 
   .category-sidebar {
@@ -370,7 +395,7 @@
   }
 
   .category-item:hover {
-    background: rgba(217, 119, 87, 0.12);
+    background: rgba(217, 119, 87, 0.08);
   }
 
   .archive-item {
@@ -391,7 +416,7 @@
   }
 
   .tag {
-    background: rgba(217, 119, 87, 0.15);
+    background: rgba(217, 119, 87, 0.08);
     color: var(--color-text-dark-main);
   }
 
