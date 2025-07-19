@@ -22,6 +22,7 @@ export default function ClipboardManager() {
   const [windowPosition, setWindowPosition] = useAtom(windowPositionAtom)
   const [, resetSelectedIndex] = useAtom(resetSelectedIndexAtom)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const itemsContainerRef = useRef<HTMLDivElement>(null)
   const [fullscreenImage, setFullscreenImage] = useState<ClipboardItem | null>(null)
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [hasAccessibilityPermission, setHasAccessibilityPermission] = useState(false)
@@ -247,6 +248,20 @@ export default function ClipboardManager() {
     }
   }, [])
 
+  // 自动滚动到选中项目
+  useEffect(() => {
+    if (itemsContainerRef.current && filteredItems.length > 0) {
+      const selectedElement = itemsContainerRef.current.querySelector(`[data-item-id="${filteredItems[selectedIndex]?.id}"]`)
+      if (selectedElement) {
+        selectedElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        })
+      }
+    }
+  }, [selectedIndex, filteredItems])
+
   // 选择项目
   const handleItemSelect = async (item: ClipboardItem, index: number) => {
     try {
@@ -294,7 +309,7 @@ export default function ClipboardManager() {
   // 获取快捷键显示
   const getShortcutKey = (index: number) => {
     if (index < 9) return `⌘${index + 1}`
-    return ''
+    return null
   }
 
   // 处理鼠标按下事件（用于拖拽）
@@ -506,7 +521,7 @@ export default function ClipboardManager() {
       
       <div className="main-content">
         <div className="left-panel">
-          <div className="items-container">
+          <div className="items-container" ref={itemsContainerRef}>
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
@@ -532,20 +547,22 @@ export default function ClipboardManager() {
                   )}
                 </div>
                 <div className="item-content">
-                  <div className="item-text">
+                  <div className="item-text truncate">
                     {item.content}
-                    {item.size && (
-                      <span className="item-size-inline"> · {item.size}</span>
-                    )}
                   </div>
+                  {item.size && (
+                    <div className="item-size">{item.size}</div>
+                  )}
                 </div>
                 <div className="item-meta">
                   {starredItems.has(item.id) && (
                     <div className="item-star-indicator">⭐</div>
                   )}
-                  <div className="item-shortcut">
-                    {getShortcutKey(index)}
-                  </div>
+                  {getShortcutKey(index) && (
+                    <div className="item-shortcut">
+                      {getShortcutKey(index)}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

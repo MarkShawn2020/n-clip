@@ -560,12 +560,23 @@ function createTray() {
     console.log('=== 托盘图标创建 (优化版) ===')
     let icon: Electron.NativeImage
 
-    // 简单直接的logo加载
+    // 加载黑色logo，适配Mac托盘样式
     try {
         const logoPath = getLogoResourcePath()
         console.log('Logo路径:', logoPath)
-        icon = nativeImage.createFromPath(logoPath).resize({width: 16, height: 16})
-        console.log('✅ 托盘图标加载成功')
+        icon = nativeImage.createFromPath(logoPath)
+        
+        // 如果图标为空或无效，抛出错误
+        if (icon.isEmpty()) {
+            throw new Error('Logo文件为空或无法加载')
+        }
+        
+        // 调整为合适的托盘图标尺寸（16x16，支持@2x）
+        icon = icon.resize({width: 16, height: 16})
+        
+        // 设置为模板图标，让macOS自动处理深色/浅色模式
+        icon.setTemplateImage(true)
+        console.log('✅ 托盘图标加载成功，使用黑色模板图标')
     } catch (error) {
         console.log('⚠️  Logo加载失败，创建简单图标:', error instanceof Error ? error.message : 'Unknown error')
         
@@ -574,7 +585,7 @@ function createTray() {
             const size = 16
             const buffer = Buffer.alloc(size * size * 4) // RGBA
             
-            // 创建一个简单的紫色圆圈图标
+            // 创建一个主题色圆圈图标 (#D97757)
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const centerX = size / 2
@@ -583,10 +594,10 @@ function createTray() {
                     const index = (y * size + x) * 4
                     
                     if (distance <= 6) {
-                        // 紫色圆圈
-                        buffer[index] = 147     // R
-                        buffer[index + 1] = 51  // G  
-                        buffer[index + 2] = 234 // B
+                        // 主题色圆圈 (#D97757)
+                        buffer[index] = 217     // R
+                        buffer[index + 1] = 119 // G  
+                        buffer[index + 2] = 87  // B
                         buffer[index + 3] = 255 // A
                     } else {
                         // 透明背景
@@ -599,7 +610,7 @@ function createTray() {
             }
             
             icon = nativeImage.createFromBuffer(buffer, {width: size, height: size})
-            console.log('✅ 创建了默认紫色圆圈图标')
+            console.log('✅ 创建了主题色圆圈图标 (#D97757)')
         } catch (fallbackError) {
             // 最后的备用方案
             icon = nativeImage.createEmpty()
