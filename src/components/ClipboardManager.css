@@ -294,8 +294,6 @@
     overflow: hidden;
     min-height: 200px;
     max-height: calc(100vh - 200px);
-    border: 0;
-    border-radius: 0;
 }
 
 .preview-header {
@@ -425,7 +423,6 @@
 .preview-content {
     flex: 1;
     overflow: hidden;
-    border-radius: 8px;
     margin: 16px;
     padding: 8px;
     min-height: 0;
@@ -479,7 +476,7 @@
     flex-shrink: 0;
     text-align: center;
     min-height: 44px;
-    background: rgba(232, 230, 220, 0.3);
+    /*background: rgba(232, 230, 220, 0.3);*/
 }
 
 .preview-timestamp {
@@ -652,7 +649,7 @@
   }
 
   .preview-footer {
-    background: var(--color-bg-faded);
+    /*background: var(--color-bg-faded);*/
     border-top-color: var(--color-text-faded);
   }
 
@@ -848,7 +845,7 @@
     .preview-footer {
         padding: 8px 16px;
         min-height: auto;
-        background: rgba(255, 255, 255, 0.1);
+        /*background: rgba(255, 255, 255, 0.1);*/
         flex-shrink: 0;
     }
     

@@ -128,7 +128,7 @@ let win: BrowserWindow | null = null
 let archiveWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 // 窗口状态管理
-let windowPosition: { x: number; y: number } | null = null
+let windowPosition: { x: number; y: number; width: number; height: number } | null = null
 let windowReady = false
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
@@ -356,15 +356,20 @@ async function createWindow() {
         transparent: true,
         hasShadow: false,
         titleBarStyle: 'hidden',
+        trafficLightPosition: { x: -100, y: -100 }, // 隐藏红绿灯
         backgroundColor: 'rgba(0,0,0,0)', // 透明背景
         // 前台显示且可交互的关键配置
         alwaysOnTop: true,
         skipTaskbar: true,
-        resizable: false,
+        resizable: true,
         minimizable: false,
         maximizable: false,
         closable: false,
         fullscreenable: false,
+        minWidth: 600,
+        minHeight: 400,
+        maxWidth: 1200,
+        maxHeight: 900,
         // 关键：Alfred风格焦点管理配置
         focusable: true, // 允许接收键盘事件
         acceptFirstMouse: true, // 允许点击激活以便检测失焦
@@ -376,7 +381,7 @@ async function createWindow() {
         },
     })
 
-    // 计算并保存固定窗口位置
+    // 计算并保存窗口位置和尺寸
     if (!windowPosition) {
         const {screen} = require('electron')
         const primaryDisplay = screen.getPrimaryDisplay()
@@ -386,9 +391,11 @@ async function createWindow() {
         const windowHeight = 600
         windowPosition = {
             x: Math.round((screenWidth - windowWidth) / 2),
-            y: Math.round((screenHeight - windowHeight) / 2)
+            y: Math.round((screenHeight - windowHeight) / 2),
+            width: windowWidth,
+            height: windowHeight
         }
-        console.log(`Fixed window position calculated: ${windowPosition.x}, ${windowPosition.y}`)
+        console.log(`Window position calculated: ${windowPosition.x}, ${windowPosition.y}, ${windowPosition.width}x${windowPosition.height}`)
     }
 
     // 等待窗口完全准备就绪
@@ -399,9 +406,9 @@ async function createWindow() {
             console.log('Window visible:', win?.isVisible())
             console.log('Window focused:', win?.isFocused())
 
-            // 设置固定位置
+            // 设置窗口位置和尺寸
             if (windowPosition) {
-                win?.setBounds({...windowPosition, width: 800, height: 600})
+                win?.setBounds(windowPosition)
             }
 
             // DOM准备好后，发送当前剪切板历史
@@ -425,6 +432,24 @@ async function createWindow() {
             console.log('=== PAGE LOADED ===')
             console.log('Window bounds:', win?.getBounds())
             console.log('Window visible:', win?.isVisible())
+        })
+
+        // 监听窗口尺寸变化并保存
+        win!.on('resize', () => {
+            if (win && !win.isDestroyed()) {
+                const bounds = win.getBounds()
+                windowPosition = bounds
+                console.log(`Window resized to: ${bounds.width}x${bounds.height}`)
+            }
+        })
+
+        // 监听窗口移动并保存
+        win!.on('move', () => {
+            if (win && !win.isDestroyed()) {
+                const bounds = win.getBounds()
+                windowPosition = bounds
+                console.log(`Window moved to: ${bounds.x}, ${bounds.y}`)
+            }
         })
 
         // 阻止窗口关闭，只是隐藏 - 只注册一次
@@ -1063,10 +1088,10 @@ function atomicShow() {
     operationInProgress = true
     console.log('=== ATOMIC SHOW ===')
 
-    // 使用固定位置，避免重复计算
+    // 使用保存的位置和尺寸
     if (windowPosition) {
-        console.log(`Using fixed position: ${windowPosition.x}, ${windowPosition.y}`)
-        win.setBounds({...windowPosition, width: 800, height: 600})
+        console.log(`Using saved bounds: ${windowPosition.x}, ${windowPosition.y}, ${windowPosition.width}x${windowPosition.height}`)
+        win.setBounds(windowPosition)
     }
 
     // 确保窗口正确显示和设置alwaysOnTop
