@@ -1,3 +1,15 @@
+# [4.1.0](https://github.com/MarkShawn2020/lovclip/compare/v4.0.1...v4.1.0) (2025-07-19)
+
+
+### Bug Fixes
+
+* update semantic-release assets to match CI build output (.zip files) ([116d1c9](https://github.com/MarkShawn2020/lovclip/commit/116d1c97e9a1ee8464ce1920bee25a1ab07deff3))
+
+
+### Features
+
+* fix logo ([47d6196](https://github.com/MarkShawn2020/lovclip/commit/47d6196538c3aa4a03c701b074bfd75b0861f170))
+
 ## [4.0.1](https://github.com/MarkShawn2020/lovclip/compare/v4.0.0...v4.0.1) (2025-07-18)
 
 
